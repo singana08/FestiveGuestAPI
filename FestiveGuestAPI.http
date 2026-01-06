@@ -1,0 +1,6 @@
+@FestiveGuestAPI_HostAddress = http://localhost:5103
+
+GET {{FestiveGuestAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
