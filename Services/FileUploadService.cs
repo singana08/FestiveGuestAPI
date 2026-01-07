@@ -1,6 +1,7 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
+using Azure.Storage;
 using FestiveGuestAPI.Configuration;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -19,12 +20,28 @@ public interface IFileUploadService
 public class FileUploadService : IFileUploadService
 {
     private readonly BlobServiceClient _blobServiceClient;
+    private readonly StorageSharedKeyCredential _credential;
+    private readonly string _accountName;
     private readonly AppSecrets _secrets;
 
     public FileUploadService(AppSecrets secrets)
     {
         _secrets = secrets;
-        _blobServiceClient = new BlobServiceClient(secrets.BlobStorageConnectionString);
+        
+        // Parse connection string
+        var parts = secrets.BlobStorageConnectionString.Split(';');
+        foreach (var part in parts)
+        {
+            if (part.StartsWith("AccountName="))
+                _accountName = part.Replace("AccountName=", "");
+            else if (part.StartsWith("AccountKey="))
+            {
+                var accountKey = part.Replace("AccountKey=", "");
+                _credential = new StorageSharedKeyCredential(_accountName, accountKey);
+            }
+        }
+        
+        _blobServiceClient = new BlobServiceClient(new Uri($"https://{_accountName}.blob.core.windows.net"), _credential);
     }
 
     public async Task<string> UploadProfileImageAsync(IFormFile file, string userId)
@@ -86,7 +103,6 @@ public class FileUploadService : IFileUploadService
         await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
 
         var blobName = $"{userId}_{Guid.NewGuid()}.jpg";
-        var blobClient = containerClient.GetBlobClient(blobName);
 
         var sasBuilder = new BlobSasBuilder
         {
@@ -98,23 +114,16 @@ public class FileUploadService : IFileUploadService
         };
         sasBuilder.SetPermissions(BlobSasPermissions.Write | BlobSasPermissions.Create | BlobSasPermissions.Read);
 
-        return blobClient.GenerateSasUri(sasBuilder).ToString();
+        var sasToken = sasBuilder.ToSasQueryParameters(_credential).ToString();
+        var blobUrl = $"https://{_accountName}.blob.core.windows.net/profile-images/{blobName}";
+        
+        return $"{blobUrl}?{sasToken}";
     }
 
     public string GenerateReadSasUrl(string fileName, string containerName = "logos")
     {
         try
         {
-            var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
-            var blobClient = containerClient.GetBlobClient(fileName);
-
-            // Check if we can generate SAS (requires account key)
-            if (!_blobServiceClient.CanGenerateAccountSasUri)
-            {
-                // Fallback: return direct URL (will work if container is public)
-                return blobClient.Uri.ToString();
-            }
-
             var sasBuilder = new BlobSasBuilder
             {
                 BlobContainerName = containerName,
@@ -125,16 +134,15 @@ public class FileUploadService : IFileUploadService
             };
             sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
-            var sasUri = blobClient.GenerateSasUri(sasBuilder);
-            return sasUri.ToString();
+            var sasToken = sasBuilder.ToSasQueryParameters(_credential).ToString();
+            var blobUrl = $"https://{_accountName}.blob.core.windows.net/{containerName}/{fileName}";
+            
+            return $"{blobUrl}?{sasToken}";
         }
         catch (Exception ex)
         {
-            // Log error and return direct URL as fallback
             Console.WriteLine($"Error generating SAS URL: {ex.Message}");
-            var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
-            var blobClient = containerClient.GetBlobClient(fileName);
-            return blobClient.Uri.ToString();
+            return $"https://{_accountName}.blob.core.windows.net/{containerName}/{fileName}";
         }
     }
 }
