@@ -44,8 +44,16 @@ public class UserController : ControllerBase
         string profileImageUrl = user.ProfileImageUrl;
         if (!string.IsNullOrEmpty(profileImageUrl))
         {
-            var fileName = profileImageUrl.Split('/').Last().Split('?').First();
-            profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
+            try
+            {
+                var uri = new Uri(profileImageUrl);
+                var fileName = Path.GetFileName(uri.LocalPath);
+                profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
+            }
+            catch
+            {
+                // If parsing fails, keep original URL
+            }
         }
 
         var userDto = new UserDto
@@ -90,8 +98,16 @@ public class UserController : ControllerBase
             string profileImageUrl = u.ProfileImageUrl;
             if (!string.IsNullOrEmpty(profileImageUrl))
             {
-                var fileName = profileImageUrl.Split('/').Last().Split('?').First();
-                profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
+                try
+                {
+                    var uri = new Uri(profileImageUrl);
+                    var fileName = Path.GetFileName(uri.LocalPath);
+                    profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
+                }
+                catch
+                {
+                    // If parsing fails, keep original URL
+                }
             }
 
             return new UserDto
