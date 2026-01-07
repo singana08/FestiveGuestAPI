@@ -6,6 +6,11 @@ using System.Security.Claims;
 
 namespace FestiveGuestAPI.Controllers;
 
+public class ConfirmUploadDto
+{
+    public string ImageUrl { get; set; } = string.Empty;
+}
+
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -90,36 +95,70 @@ public class UserController : ControllerBase
         return Ok(userDtos);
     }
 
+    [HttpGet("upload-sas-token")]
+    public async Task<IActionResult> GetUploadSasToken()
+    {
+        var userId = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        try
+        {
+            var sasUrl = await _fileUploadService.GenerateUploadSasTokenAsync(userId);
+            return Ok(new { sasUrl });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("confirm-upload")]
+    public async Task<IActionResult> ConfirmUpload([FromBody] ConfirmUploadDto dto)
+    {
+        var userId = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        try
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId);
+            if (user != null)
+            {
+                user.ProfileImageUrl = dto.ImageUrl;
+                await _userRepository.UpdateUserAsync(user);
+            }
+            return Ok(new { message = "Profile updated" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
     [HttpPost("upload-profile-image")]
     public async Task<IActionResult> UploadProfileImage(IFormFile file)
     {
         var userId = User.FindFirst("userId")?.Value;
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
+        if (string.IsNullOrEmpty(userId)) return Unauthorized(new { error = "User not authenticated" });
+        if (file == null) return BadRequest(new { error = "No file provided" });
 
         try
         {
             var imageUrl = await _fileUploadService.UploadProfileImageAsync(file, userId);
-            
-            // Update user profile with new image URL
             var user = await _userRepository.GetUserByIdAsync(userId);
             if (user != null)
             {
                 user.ProfileImageUrl = imageUrl;
                 await _userRepository.UpdateUserAsync(user);
             }
-
             return Ok(new { imageUrl, message = "Profile image uploaded successfully" });
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, "Failed to upload image");
+            return StatusCode(500, new { error = ex.Message });
         }
     }
 

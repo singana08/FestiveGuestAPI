@@ -1,0 +1,33 @@
+### Test SAS Token Generation
+
+### Get SAS URL for logo (path parameter)
+GET https://festive-guest-api.azurewebsites.net/api/storage/get-sas-url/festive-logo.png
+
+###
+
+### Get SAS URL for logo (query parameters)
+GET https://festive-guest-api.azurewebsites.net/api/storage/get-sas-url?fileName=festive-logo.png&container=logos
+
+###
+
+### Get SAS URL for login logo
+GET https://festive-guest-api.azurewebsites.net/api/storage/get-sas-url/festive-login-logo.png
+
+###
+
+### Get SAS URL for profile image
+GET https://festive-guest-api.azurewebsites.net/api/storage/get-sas-url?fileName=user123_abc.jpg&container=profile-images
+
+###
+
+### Local Development Tests
+
+### Get SAS URL (localhost)
+GET http://localhost:7219/api/storage/get-sas-url/festive-logo.png
+
+###
+
+### Get SAS URL with query params (localhost)
+GET http://localhost:7219/api/storage/get-sas-url?fileName=festive-logo.png&container=logos
+
+###

@@ -20,6 +20,7 @@ public class UserEntity : ITableEntity
     public string Location { get; set; } = string.Empty;
     public string Bio { get; set; } = string.Empty;
     public string ProfileImageUrl { get; set; } = string.Empty;
+    public string AcsUserId { get; set; } = string.Empty;
     public bool IsVerified { get; set; }
     public DateTime CreatedDate { get; set; }
 }
@@ -77,6 +78,22 @@ public class ChatThreadEntity : ITableEntity
     public string User2Id { get; set; } = string.Empty;
     public DateTime CreatedDate { get; set; }
     public DateTime LastMessageDate { get; set; }
+}
+
+// ChatMessages table
+public class ChatMessageEntity : ITableEntity
+{
+    public string PartitionKey { get; set; } = string.Empty;
+    public string RowKey { get; set; } = string.Empty;
+    public DateTimeOffset? Timestamp { get; set; }
+    public ETag ETag { get; set; }
+    
+    public string SenderId { get; set; } = string.Empty;
+    public string SenderName { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string Status { get; set; } = "Sent";
+    public DateTime? DeliveredAt { get; set; }
+    public DateTime? ReadAt { get; set; }
 }
 
 // Payments table

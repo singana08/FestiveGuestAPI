@@ -1,5 +1,6 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Azure.Storage.Sas;
 using FestiveGuestAPI.Configuration;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -9,8 +10,10 @@ namespace FestiveGuestAPI.Services;
 
 public interface IFileUploadService
 {
+    Task<string> GenerateUploadSasTokenAsync(string userId);
     Task<string> UploadProfileImageAsync(IFormFile file, string userId);
     Task<bool> DeleteProfileImageAsync(string fileName);
+    string GenerateReadSasUrl(string fileName, string containerName = "logos");
 }
 
 public class FileUploadService : IFileUploadService
@@ -29,48 +32,35 @@ public class FileUploadService : IFileUploadService
         if (file == null || file.Length == 0)
             throw new ArgumentException("File is empty");
 
-        // Validate file type
         var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/webp" };
         if (!allowedTypes.Contains(file.ContentType.ToLower()))
             throw new ArgumentException("Only JPEG, PNG, and WebP images are allowed");
 
-        // Validate file size (max 10MB)
         if (file.Length > 10 * 1024 * 1024)
             throw new ArgumentException("File size must be less than 10MB");
 
-        var containerClient = _blobServiceClient.GetBlobContainerClient(_secrets.BlobContainerName);
-        await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
+        var containerClient = _blobServiceClient.GetBlobContainerClient("profile-images");
+        await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
 
         var fileName = $"{userId}_{Guid.NewGuid()}.jpg";
         var blobClient = containerClient.GetBlobClient(fileName);
 
-        // Compress and resize image
         using var originalStream = file.OpenReadStream();
         using var compressedStream = new MemoryStream();
         
         using (var image = await Image.LoadAsync(originalStream))
         {
-            // Resize if larger than 1200px on any side
-            if (image.Width > 1200 || image.Height > 1200)
+            if (image.Width > 800 || image.Height > 800)
             {
-                var ratio = Math.Min(1200.0 / image.Width, 1200.0 / image.Height);
-                var newWidth = (int)(image.Width * ratio);
-                var newHeight = (int)(image.Height * ratio);
-                
-                image.Mutate(x => x.Resize(newWidth, newHeight));
+                var ratio = Math.Min(800.0 / image.Width, 800.0 / image.Height);
+                image.Mutate(x => x.Resize((int)(image.Width * ratio), (int)(image.Height * ratio)));
             }
 
-            // Save as JPEG with high quality
-            var encoder = new JpegEncoder { Quality = 85 };
-            await image.SaveAsync(compressedStream, encoder);
+            await image.SaveAsync(compressedStream, new JpegEncoder { Quality = 80 });
         }
 
         compressedStream.Position = 0;
-
-        await blobClient.UploadAsync(compressedStream, new BlobHttpHeaders
-        {
-            ContentType = "image/jpeg"
-        });
+        await blobClient.UploadAsync(compressedStream, new BlobHttpHeaders { ContentType = "image/jpeg" });
 
         return blobClient.Uri.ToString();
     }
@@ -79,15 +69,72 @@ public class FileUploadService : IFileUploadService
     {
         try
         {
-            var containerClient = _blobServiceClient.GetBlobContainerClient(_secrets.BlobContainerName);
+            var containerClient = _blobServiceClient.GetBlobContainerClient("profile-images");
             var blobClient = containerClient.GetBlobClient(fileName);
-            
             var response = await blobClient.DeleteIfExistsAsync();
             return response.Value;
         }
         catch
         {
             return false;
+        }
+    }
+
+    public async Task<string> GenerateUploadSasTokenAsync(string userId)
+    {
+        var containerClient = _blobServiceClient.GetBlobContainerClient("profile-images");
+        await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
+
+        var fileName = $"{userId}_{Guid.NewGuid()}.jpg";
+        var blobClient = containerClient.GetBlobClient(fileName);
+
+        var sasBuilder = new BlobSasBuilder
+        {
+            BlobContainerName = "profile-images",
+            BlobName = fileName,
+            Resource = "b",
+            StartsOn = DateTimeOffset.UtcNow.AddMinutes(-5),
+            ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(30)
+        };
+        sasBuilder.SetPermissions(BlobSasPermissions.Write);
+
+        return blobClient.GenerateSasUri(sasBuilder).ToString();
+    }
+
+    public string GenerateReadSasUrl(string fileName, string containerName = "logos")
+    {
+        try
+        {
+            var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+            var blobClient = containerClient.GetBlobClient(fileName);
+
+            // Check if we can generate SAS (requires account key)
+            if (!_blobServiceClient.CanGenerateAccountSasUri)
+            {
+                // Fallback: return direct URL (will work if container is public)
+                return blobClient.Uri.ToString();
+            }
+
+            var sasBuilder = new BlobSasBuilder
+            {
+                BlobContainerName = containerName,
+                BlobName = fileName,
+                Resource = "b",
+                StartsOn = DateTimeOffset.UtcNow.AddMinutes(-5),
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
+            };
+            sasBuilder.SetPermissions(BlobSasPermissions.Read);
+
+            var sasUri = blobClient.GenerateSasUri(sasBuilder);
+            return sasUri.ToString();
+        }
+        catch (Exception ex)
+        {
+            // Log error and return direct URL as fallback
+            Console.WriteLine($"Error generating SAS URL: {ex.Message}");
+            var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+            var blobClient = containerClient.GetBlobClient(fileName);
+            return blobClient.Uri.ToString();
         }
     }
 }

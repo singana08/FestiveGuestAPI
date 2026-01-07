@@ -27,13 +27,6 @@ public interface ILocationRepository
     Task<IEnumerable<string>> GetStatesAsync();
 }
 
-public interface IChatThreadRepository
-{
-    Task<ChatThreadEntity?> GetChatThreadAsync(string user1Id, string user2Id);
-    Task<ChatThreadEntity> CreateChatThreadAsync(ChatThreadEntity chatThread);
-    Task<IEnumerable<ChatThreadEntity>> GetUserChatThreadsAsync(string userId);
-}
-
 public interface IPaymentRepository
 {
     Task<IEnumerable<PaymentEntity>> GetUserPaymentsAsync(string userId);

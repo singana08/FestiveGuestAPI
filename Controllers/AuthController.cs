@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using FestiveGuestAPI.DTOs;
 using FestiveGuestAPI.Services;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace FestiveGuestAPI.Controllers;
 
@@ -9,10 +11,12 @@ namespace FestiveGuestAPI.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IUserRepository _userRepository;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IUserRepository userRepository)
     {
         _authService = authService;
+        _userRepository = userRepository;
     }
 
     [HttpPost("register")]
@@ -68,4 +72,5 @@ public class AuthController : ControllerBase
 
         return Ok(result);
     }
+
 }
