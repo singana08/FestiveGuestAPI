@@ -85,18 +85,18 @@ public class FileUploadService : IFileUploadService
         var containerClient = _blobServiceClient.GetBlobContainerClient("profile-images");
         await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
 
-        var fileName = $"{userId}_{Guid.NewGuid()}.jpg";
-        var blobClient = containerClient.GetBlobClient(fileName);
+        var blobName = $"{userId}_{Guid.NewGuid()}.jpg";
+        var blobClient = containerClient.GetBlobClient(blobName);
 
         var sasBuilder = new BlobSasBuilder
         {
             BlobContainerName = "profile-images",
-            BlobName = fileName,
+            BlobName = blobName,
             Resource = "b",
             StartsOn = DateTimeOffset.UtcNow.AddMinutes(-5),
             ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(30)
         };
-        sasBuilder.SetPermissions(BlobSasPermissions.Write);
+        sasBuilder.SetPermissions(BlobSasPermissions.Write | BlobSasPermissions.Create | BlobSasPermissions.Read);
 
         return blobClient.GenerateSasUri(sasBuilder).ToString();
     }
