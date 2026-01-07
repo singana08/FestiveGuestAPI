@@ -40,6 +40,14 @@ public class UserController : ControllerBase
             return NotFound("User not found");
         }
 
+        // Generate SAS URL for profile image if exists
+        string profileImageUrl = user.ProfileImageUrl;
+        if (!string.IsNullOrEmpty(profileImageUrl))
+        {
+            var fileName = profileImageUrl.Split('/').Last().Split('?').First();
+            profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
+        }
+
         var userDto = new UserDto
         {
             UserId = user.RowKey,
@@ -50,7 +58,7 @@ public class UserController : ControllerBase
             Status = user.Status,
             Location = user.Location,
             Bio = user.Bio,
-            ProfileImageUrl = user.ProfileImageUrl,
+            ProfileImageUrl = profileImageUrl,
             IsVerified = user.IsVerified,
             CreatedDate = user.CreatedDate
         };
@@ -77,19 +85,29 @@ public class UserController : ControllerBase
         var targetUserType = currentUser.UserType == "Guest" ? "Host" : "Guest";
         var users = await _userRepository.GetUsersByTypeAsync(targetUserType);
 
-        var userDtos = users.Select(u => new UserDto
-        {
-            UserId = u.RowKey,
-            Name = u.Name,
-            Email = MaskEmail(u.Email),
-            Phone = MaskPhone(u.Phone),
-            UserType = u.UserType,
-            Status = u.Status,
-            Location = u.Location,
-            Bio = u.Bio,
-            ProfileImageUrl = u.ProfileImageUrl,
-            IsVerified = u.IsVerified,
-            CreatedDate = u.CreatedDate
+        var userDtos = users.Select(u => {
+            // Generate SAS URL for profile image if exists
+            string profileImageUrl = u.ProfileImageUrl;
+            if (!string.IsNullOrEmpty(profileImageUrl))
+            {
+                var fileName = profileImageUrl.Split('/').Last().Split('?').First();
+                profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
+            }
+
+            return new UserDto
+            {
+                UserId = u.RowKey,
+                Name = u.Name,
+                Email = MaskEmail(u.Email),
+                Phone = MaskPhone(u.Phone),
+                UserType = u.UserType,
+                Status = u.Status,
+                Location = u.Location,
+                Bio = u.Bio,
+                ProfileImageUrl = profileImageUrl,
+                IsVerified = u.IsVerified,
+                CreatedDate = u.CreatedDate
+            };
         }).ToList();
 
         return Ok(userDtos);
