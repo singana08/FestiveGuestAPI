@@ -78,7 +78,7 @@ public class UserRepository : IUserRepository
         user.RowKey = Guid.NewGuid().ToString();
         user.CreatedDate = DateTime.UtcNow;
         user.Status = "Active";
-        user.IsVerified = false;
+        user.IsVerified = true;
         user.ReferralCode = GenerateReferralCode(user.RowKey);
         
         await _tableClient.AddEntityAsync(user);
