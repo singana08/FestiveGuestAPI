@@ -44,6 +44,15 @@ public class UserRepository : IUserRepository
         return null;
     }
 
+    public async Task<UserEntity?> GetUserByNameAsync(string name)
+    {
+        await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.Name.ToLower() == name.ToLower()))
+        {
+            return user;
+        }
+        return null;
+    }
+
     public async Task<UserEntity?> GetUserByReferralCodeAsync(string referralCode)
     {
         await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.ReferralCode == referralCode))

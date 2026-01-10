@@ -7,6 +7,7 @@ public interface IUserRepository
     Task<IEnumerable<UserEntity>> GetAllUsersAsync();
     Task<UserEntity?> GetUserByIdAsync(string userId);
     Task<UserEntity?> GetUserByEmailAsync(string email);
+    Task<UserEntity?> GetUserByNameAsync(string name);
     Task<UserEntity?> GetUserByReferralCodeAsync(string referralCode);
     Task<IEnumerable<UserEntity>> GetUsersByTypeAsync(string userType);
     Task<UserEntity> CreateUserAsync(UserEntity user);

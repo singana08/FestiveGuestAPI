@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using FestiveGuestAPI.Services;
 using FestiveGuestAPI.DTOs;
+using FestiveGuestAPI.Models;
+using Azure.Data.Tables;
 using System.Security.Claims;
 
 namespace FestiveGuestAPI.Controllers;
@@ -11,6 +13,11 @@ public class ConfirmUploadDto
     public string ImageUrl { get; set; } = string.Empty;
 }
 
+public class PublicProfileRequest
+{
+    public string UserId { get; set; } = string.Empty;
+}
+
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -18,11 +25,13 @@ public class UserController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
     private readonly IFileUploadService _fileUploadService;
+    private readonly TableServiceClient _tableServiceClient;
 
-    public UserController(IUserRepository userRepository, IFileUploadService fileUploadService)
+    public UserController(IUserRepository userRepository, IFileUploadService fileUploadService, TableServiceClient tableServiceClient)
     {
         _userRepository = userRepository;
         _fileUploadService = fileUploadService;
+        _tableServiceClient = tableServiceClient;
     }
 
     [HttpGet("profile")]
@@ -129,6 +138,184 @@ public class UserController : ControllerBase
         }).ToList();
 
         return Ok(userDtos);
+    }
+
+    [HttpPost("public-profile")]
+    public async Task<IActionResult> GetPublicProfile([FromBody] PublicProfileRequest request)
+    {
+        var user = await _userRepository.GetUserByIdAsync(request.UserId);
+        if (user == null)
+            return NotFound("User not found");
+
+        string profileImageUrl = user.ProfileImageUrl;
+        if (!string.IsNullOrEmpty(profileImageUrl))
+        {
+            try
+            {
+                var uri = new Uri(profileImageUrl);
+                var fileName = Path.GetFileName(uri.LocalPath);
+                profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
+            }
+            catch { }
+        }
+
+        // Get reviews and calculate ratings
+        var reviewData = await GetReviewsData(request.UserId);
+
+        return Ok(new
+        {
+            id = user.RowKey,
+            userId = user.RowKey,
+            name = user.Name,
+            email = user.Email,
+            userType = user.UserType,
+            location = user.Location,
+            bio = user.Bio,
+            profileImageUrl,
+            createdAt = user.CreatedDate,
+            status = user.Status,
+            averageRating = reviewData.AverageRating,
+            totalReviews = reviewData.TotalReviews,
+            reviews = reviewData.Reviews
+        });
+    }
+
+    [HttpGet("public-profile-by-name/{userName}")]
+    public async Task<IActionResult> GetPublicProfileByName(string userName)
+    {
+        var decodedName = Uri.UnescapeDataString(userName).Replace("-", " ");
+        var user = await _userRepository.GetUserByNameAsync(decodedName);
+        
+        if (user == null)
+            return NotFound("User not found");
+
+        string profileImageUrl = user.ProfileImageUrl;
+        if (!string.IsNullOrEmpty(profileImageUrl))
+        {
+            try
+            {
+                var uri = new Uri(profileImageUrl);
+                var fileName = Path.GetFileName(uri.LocalPath);
+                profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
+            }
+            catch { }
+        }
+
+        // Get reviews and calculate ratings
+        var reviewData = await GetReviewsData(user.RowKey);
+
+        return Ok(new
+        {
+            id = user.RowKey,
+            userId = user.RowKey,
+            name = user.Name,
+            email = user.Email,
+            userType = user.UserType,
+            location = user.Location,
+            bio = user.Bio,
+            profileImageUrl,
+            createdAt = user.CreatedDate,
+            status = user.Status,
+            averageRating = reviewData.AverageRating,
+            totalReviews = reviewData.TotalReviews,
+            reviews = reviewData.Reviews
+        });
+    }
+
+    private async Task<(double AverageRating, int TotalReviews, List<object> Reviews)> GetReviewsData(string userId)
+    {
+        try
+        {
+            var tableClient = _tableServiceClient.GetTableClient("Reviews");
+            var reviews = tableClient.QueryAsync<ReviewEntity>(r => r.PartitionKey == userId);
+            
+            var reviewList = new List<object>();
+            var ratings = new List<int>();
+
+            await foreach (var review in reviews)
+            {
+                reviewList.Add(new
+                {
+                    reviewerId = review.ReviewerId,
+                    reviewerName = review.ReviewerName,
+                    rating = review.Rating,
+                    comment = review.Comment,
+                    createdAt = review.CreatedAt
+                });
+                ratings.Add(review.Rating);
+            }
+
+            var averageRating = ratings.Count > 0 ? Math.Round(ratings.Average(), 1) : 0;
+            return (averageRating, ratings.Count, reviewList);
+        }
+        catch
+        {
+            return (0, 0, new List<object>());
+        }
+    }
+
+    [HttpGet("reviews/{userId}")]
+    public async Task<IActionResult> GetUserReviews(string userId)
+    {
+        try
+        {
+            var tableClient = _tableServiceClient.GetTableClient("Reviews");
+            var reviews = tableClient.QueryAsync<ReviewEntity>(r => r.PartitionKey == userId);
+            
+            var reviewList = new List<object>();
+            await foreach (var review in reviews)
+            {
+                reviewList.Add(new
+                {
+                    reviewerId = review.ReviewerId,
+                    reviewerName = review.ReviewerName,
+                    rating = review.Rating,
+                    comment = review.Comment,
+                    createdAt = review.CreatedAt
+                });
+            }
+
+            return Ok(reviewList);
+        }
+        catch
+        {
+            return Ok(new List<object>());
+        }
+    }
+
+    [HttpGet("reviews-by-name/{userName}")]
+    public async Task<IActionResult> GetUserReviewsByName(string userName)
+    {
+        try
+        {
+            var decodedName = Uri.UnescapeDataString(userName).Replace("-", " ");
+            var user = await _userRepository.GetUserByNameAsync(decodedName);
+            
+            if (user == null)
+                return Ok(new List<object>());
+
+            var tableClient = _tableServiceClient.GetTableClient("Reviews");
+            var reviews = tableClient.QueryAsync<ReviewEntity>(r => r.PartitionKey == user.RowKey);
+            
+            var reviewList = new List<object>();
+            await foreach (var review in reviews)
+            {
+                reviewList.Add(new
+                {
+                    reviewerId = review.ReviewerId,
+                    reviewerName = review.ReviewerName,
+                    rating = review.Rating,
+                    comment = review.Comment,
+                    createdAt = review.CreatedAt
+                });
+            }
+
+            return Ok(reviewList);
+        }
+        catch
+        {
+            return Ok(new List<object>());
+        }
     }
 
     [HttpGet("upload-sas-token")]
