@@ -76,10 +76,6 @@ public class AuthService : IAuthService
             };
 
             var createdUser = await _userRepository.CreateUserAsync(user);
-            
-            // Generate and save referral code
-            createdUser.ReferralCode = GenerateReferralCode(createdUser.RowKey);
-            await _userRepository.UpdateUserAsync(createdUser);
 
             // Send registration confirmation email
             try
@@ -184,13 +180,6 @@ public class AuthService : IAuthService
     private bool IsValidPhone(string phone)
     {
         return phone.Length >= 10 && phone.All(char.IsDigit);
-    }
-
-    private string GenerateReferralCode(string userId)
-    {
-        var random = new Random();
-        var randomPart = random.Next(1000, 9999);
-        return $"FG{userId.Substring(0, Math.Min(5, userId.Length))}{randomPart}".ToUpper();
     }
 
     private string GenerateToken(string userId, string userName = "")

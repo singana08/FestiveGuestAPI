@@ -79,9 +79,17 @@ public class UserRepository : IUserRepository
         user.CreatedDate = DateTime.UtcNow;
         user.Status = "Active";
         user.IsVerified = false;
+        user.ReferralCode = GenerateReferralCode(user.RowKey);
         
         await _tableClient.AddEntityAsync(user);
         return user;
+    }
+
+    private string GenerateReferralCode(string userId)
+    {
+        var random = new Random();
+        var randomPart = random.Next(1000, 9999);
+        return $"FG{userId.Substring(0, Math.Min(5, userId.Length))}{randomPart}".ToUpper();
     }
 
     public async Task<UserEntity> UpdateUserAsync(UserEntity user)
