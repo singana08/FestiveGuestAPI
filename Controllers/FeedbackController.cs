@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using FestiveGuestAPI.Models;
 using Azure.Data.Tables;
 using System.ComponentModel.DataAnnotations;
@@ -17,10 +18,15 @@ public class FeedbackController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize]
     public async Task<IActionResult> SubmitFeedback([FromBody] FeedbackRequest request)
     {
         if (!ModelState.IsValid)
             return BadRequest(new { success = false, message = "Invalid request data", errors = ModelState });
+
+        var userId = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
 
         try
         {
@@ -31,6 +37,7 @@ public class FeedbackController : ControllerBase
             {
                 PartitionKey = "FEEDBACK",
                 RowKey = Guid.NewGuid().ToString(),
+                UserId = userId,
                 Name = request.Name,
                 Email = request.Email,
                 UserType = request.UserType,

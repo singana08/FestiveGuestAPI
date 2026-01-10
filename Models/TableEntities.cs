@@ -123,6 +123,7 @@ public class FeedbackEntity : ITableEntity
     public DateTimeOffset? Timestamp { get; set; }
     public ETag ETag { get; set; }
     
+    public string UserId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string UserType { get; set; } = string.Empty;
