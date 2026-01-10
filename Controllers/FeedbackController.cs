@@ -20,7 +20,7 @@ public class FeedbackController : ControllerBase
     public async Task<IActionResult> SubmitFeedback([FromBody] FeedbackRequest request)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+            return BadRequest(new { success = false, message = "Invalid request data", errors = ModelState });
 
         try
         {
@@ -44,6 +44,8 @@ public class FeedbackController : ControllerBase
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"Feedback error: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return StatusCode(500, new { success = false, message = $"Failed to submit feedback: {ex.Message}" });
         }
     }
