@@ -33,6 +33,7 @@ public class FeedbackController : ControllerBase
                 RowKey = Guid.NewGuid().ToString(),
                 Name = request.Name,
                 Email = request.Email,
+                UserType = request.UserType,
                 Message = request.Message,
                 CreatedDate = DateTime.UtcNow
             };
@@ -56,6 +57,9 @@ public class FeedbackRequest
     [Required]
     [EmailAddress]
     public string Email { get; set; } = string.Empty;
+
+    [Required]
+    public string UserType { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(1000)]

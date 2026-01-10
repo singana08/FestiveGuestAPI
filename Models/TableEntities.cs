@@ -125,6 +125,7 @@ public class FeedbackEntity : ITableEntity
     
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string UserType { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public string Status { get; set; } = "Pending";
     public DateTime CreatedDate { get; set; }
