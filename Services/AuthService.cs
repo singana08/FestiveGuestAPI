@@ -31,70 +31,78 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
-        // Validate user type
-        if (request.UserType != "Guest" && request.UserType != "Host")
-        {
-            return new AuthResponse { Success = false, Message = "Invalid user type. Must be 'Guest' or 'Host'." };
-        }
-
-        // Check if email already exists
-        var existingUser = await _userRepository.GetUserByEmailAsync(request.Email);
-        if (existingUser != null)
-        {
-            return new AuthResponse { Success = false, Message = "Email already registered." };
-        }
-
-        // Validate phone format (basic validation)
-        if (!IsValidPhone(request.Phone))
-        {
-            return new AuthResponse { Success = false, Message = "Invalid phone number format." };
-        }
-
-        // Validate referral code if provided
-        if (!string.IsNullOrWhiteSpace(request.ReferredBy))
-        {
-            var referrer = await _userRepository.GetUserByReferralCodeAsync(request.ReferredBy);
-            if (referrer == null)
-            {
-                return new AuthResponse { Success = false, Message = "Invalid referral code." };
-            }
-        }
-
-        // Create user entity
-        var user = new UserEntity
-        {
-            Name = request.Name,
-            Email = request.Email.ToLower(),
-            Phone = request.Phone,
-            Password = HashPassword(request.Password),
-            UserType = request.UserType,
-            Location = request.Location,
-            Bio = request.Bio,
-            ReferredBy = request.ReferredBy ?? string.Empty
-        };
-
-        var createdUser = await _userRepository.CreateUserAsync(user);
-        
-        // Generate and save referral code
-        createdUser.ReferralCode = GenerateReferralCode(createdUser.RowKey);
-        await _userRepository.UpdateUserAsync(createdUser);
-
-        // Send registration confirmation email
         try
         {
-            await _emailService.SendRegistrationConfirmationAsync(createdUser.Email, createdUser.Name);
-        }
-        catch
-        {
-            // Log error but don't fail registration
-        }
+            // Validate user type
+            if (request.UserType != "Guest" && request.UserType != "Host")
+            {
+                return new AuthResponse { Success = false, Message = "Invalid user type. Must be 'Guest' or 'Host'." };
+            }
 
-        return new AuthResponse
+            // Check if email already exists
+            var existingUser = await _userRepository.GetUserByEmailAsync(request.Email);
+            if (existingUser != null)
+            {
+                return new AuthResponse { Success = false, Message = "Email already registered." };
+            }
+
+            // Validate phone format (basic validation)
+            if (!IsValidPhone(request.Phone))
+            {
+                return new AuthResponse { Success = false, Message = "Invalid phone number format." };
+            }
+
+            // Validate referral code if provided
+            if (!string.IsNullOrWhiteSpace(request.ReferredBy))
+            {
+                var referrer = await _userRepository.GetUserByReferralCodeAsync(request.ReferredBy);
+                if (referrer == null)
+                {
+                    return new AuthResponse { Success = false, Message = "Invalid referral code." };
+                }
+            }
+
+            // Create user entity
+            var user = new UserEntity
+            {
+                Name = request.Name,
+                Email = request.Email.ToLower(),
+                Phone = request.Phone,
+                Password = HashPassword(request.Password),
+                UserType = request.UserType,
+                Location = request.Location,
+                Bio = request.Bio,
+                ReferredBy = request.ReferredBy ?? string.Empty
+            };
+
+            var createdUser = await _userRepository.CreateUserAsync(user);
+            
+            // Generate and save referral code
+            createdUser.ReferralCode = GenerateReferralCode(createdUser.RowKey);
+            await _userRepository.UpdateUserAsync(createdUser);
+
+            // Send registration confirmation email
+            try
+            {
+                await _emailService.SendRegistrationConfirmationAsync(createdUser.Email, createdUser.Name);
+            }
+            catch
+            {
+                // Log error but don't fail registration
+            }
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "User registered successfully.",
+                User = MapToUserDto(createdUser),
+                Token = GenerateToken(createdUser.RowKey, createdUser.Name)
+            };
+        }
+        catch (Exception ex)
         {
-            Success = true,
-            Message = "User registered successfully.",
-            User = MapToUserDto(createdUser)
-        };
+            return new AuthResponse { Success = false, Message = $"Registration failed: {ex.Message}" };
+        }
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -120,7 +128,7 @@ public class AuthService : IAuthService
             Success = true,
             Message = "Login successful.",
             User = MapToUserDto(user),
-            Token = GenerateToken(user.RowKey)
+            Token = GenerateToken(user.RowKey, user.Name)
         };
     }
 
@@ -185,18 +193,25 @@ public class AuthService : IAuthService
         return $"FG{userId.Substring(0, Math.Min(5, userId.Length))}{randomPart}".ToUpper();
     }
 
-    private string GenerateToken(string userId)
+    private string GenerateToken(string userId, string userName = "")
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(_secrets.JwtSecretKey);
         
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim("userId", userId)
+        };
+
+        if (!string.IsNullOrEmpty(userName))
+        {
+            claims.Add(new Claim("name", userName));
+        }
+        
         var tokenDescriptor = new SecurityTokenDescriptor
         {
-            Subject = new ClaimsIdentity(new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, userId),
-                new Claim("userId", userId)
-            }),
+            Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddDays(30), // 30 days expiration
             Issuer = _secrets.JwtIssuer,
             Audience = _secrets.JwtAudience,
