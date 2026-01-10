@@ -175,7 +175,7 @@ public class AuthService : IAuthService
             var otpValid = await _emailService.ValidateOTPAsync(new ValidateOTPRequest 
             { 
                 Email = request.Email, 
-                OtpCode = request.OtpCode 
+                OTPCode = request.OtpCode 
             });
             
             if (!otpValid.Success)
