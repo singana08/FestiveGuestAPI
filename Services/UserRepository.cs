@@ -44,6 +44,15 @@ public class UserRepository : IUserRepository
         return null;
     }
 
+    public async Task<UserEntity?> GetUserByReferralCodeAsync(string referralCode)
+    {
+        await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.ReferralCode == referralCode))
+        {
+            return user;
+        }
+        return null;
+    }
+
     public async Task<IEnumerable<UserEntity>> GetUsersByTypeAsync(string userType)
     {
         var users = new List<UserEntity>();

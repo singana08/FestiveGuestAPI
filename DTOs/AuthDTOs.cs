@@ -21,6 +21,7 @@ public class RegisterRequest
     
     public string Location { get; set; } = string.Empty;
     public string Bio { get; set; } = string.Empty;
+    public string? ReferredBy { get; set; }
 }
 
 public class LoginRequest
@@ -68,4 +69,5 @@ public class UserDto
     public string ProfileImageUrl { get; set; } = string.Empty;
     public bool IsVerified { get; set; }
     public DateTime CreatedDate { get; set; }
+    public string ReferralCode { get; set; } = string.Empty;
 }

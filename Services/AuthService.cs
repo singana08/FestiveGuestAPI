@@ -50,6 +50,16 @@ public class AuthService : IAuthService
             return new AuthResponse { Success = false, Message = "Invalid phone number format." };
         }
 
+        // Validate referral code if provided
+        if (!string.IsNullOrWhiteSpace(request.ReferredBy))
+        {
+            var referrer = await _userRepository.GetUserByReferralCodeAsync(request.ReferredBy);
+            if (referrer == null)
+            {
+                return new AuthResponse { Success = false, Message = "Invalid referral code." };
+            }
+        }
+
         // Create user entity
         var user = new UserEntity
         {
@@ -59,10 +69,15 @@ public class AuthService : IAuthService
             Password = HashPassword(request.Password),
             UserType = request.UserType,
             Location = request.Location,
-            Bio = request.Bio
+            Bio = request.Bio,
+            ReferredBy = request.ReferredBy ?? string.Empty
         };
 
         var createdUser = await _userRepository.CreateUserAsync(user);
+        
+        // Generate and save referral code
+        createdUser.ReferralCode = GenerateReferralCode(createdUser.RowKey);
+        await _userRepository.UpdateUserAsync(createdUser);
 
         // Send registration confirmation email
         try
@@ -163,6 +178,13 @@ public class AuthService : IAuthService
         return phone.Length >= 10 && phone.All(char.IsDigit);
     }
 
+    private string GenerateReferralCode(string userId)
+    {
+        var random = new Random();
+        var randomPart = random.Next(1000, 9999);
+        return $"FG{userId.Substring(0, Math.Min(5, userId.Length))}{randomPart}".ToUpper();
+    }
+
     private string GenerateToken(string userId)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
@@ -199,7 +221,8 @@ public class AuthService : IAuthService
             Bio = user.Bio,
             ProfileImageUrl = user.ProfileImageUrl,
             IsVerified = user.IsVerified,
-            CreatedDate = user.CreatedDate
+            CreatedDate = user.CreatedDate,
+            ReferralCode = user.ReferralCode
         };
     }
 }

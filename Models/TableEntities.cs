@@ -23,6 +23,8 @@ public class UserEntity : ITableEntity
     public string AcsUserId { get; set; } = string.Empty;
     public bool IsVerified { get; set; }
     public DateTime CreatedDate { get; set; }
+    public string ReferralCode { get; set; } = string.Empty;
+    public string ReferredBy { get; set; } = string.Empty;
 }
 
 // OTPs table
@@ -111,4 +113,19 @@ public class PaymentEntity : ITableEntity
     public DateTime SubmittedDate { get; set; }
     public DateTime? VerifiedDate { get; set; }
     public string AdminNotes { get; set; } = string.Empty;
+}
+
+// Feedback table
+public class FeedbackEntity : ITableEntity
+{
+    public string PartitionKey { get; set; } = string.Empty;
+    public string RowKey { get; set; } = string.Empty;
+    public DateTimeOffset? Timestamp { get; set; }
+    public ETag ETag { get; set; }
+    
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string Status { get; set; } = "Pending";
+    public DateTime CreatedDate { get; set; }
 }

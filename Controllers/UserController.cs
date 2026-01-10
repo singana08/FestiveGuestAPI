@@ -68,7 +68,8 @@ public class UserController : ControllerBase
             Bio = user.Bio,
             ProfileImageUrl = profileImageUrl,
             IsVerified = user.IsVerified,
-            CreatedDate = user.CreatedDate
+            CreatedDate = user.CreatedDate,
+            ReferralCode = user.ReferralCode
         };
 
         return Ok(userDto);
@@ -122,7 +123,8 @@ public class UserController : ControllerBase
                 Bio = u.Bio,
                 ProfileImageUrl = profileImageUrl,
                 IsVerified = u.IsVerified,
-                CreatedDate = u.CreatedDate
+                CreatedDate = u.CreatedDate,
+                ReferralCode = u.ReferralCode
             };
         }).ToList();
 
