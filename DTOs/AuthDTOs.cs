@@ -48,6 +48,27 @@ public class UpdateUserRequest
     public string? Bio { get; set; }
 }
 
+public class ResetPasswordRequest
+{
+    [Required, EmailAddress]
+    public string Email { get; set; } = string.Empty;
+    
+    [Required, StringLength(6, MinimumLength = 6)]
+    public string OtpCode { get; set; } = string.Empty;
+    
+    [Required, MinLength(6)]
+    public string NewPassword { get; set; } = string.Empty;
+}
+
+public class ChangePasswordRequest
+{
+    [Required]
+    public string CurrentPassword { get; set; } = string.Empty;
+    
+    [Required, MinLength(6)]
+    public string NewPassword { get; set; } = string.Empty;
+}
+
 public class AuthResponse
 {
     public bool Success { get; set; }

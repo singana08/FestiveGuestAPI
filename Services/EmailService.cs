@@ -42,9 +42,22 @@ public class EmailService : IEmailService
             };
 
             await _otpRepository.CreateOTPAsync(otpEntity);
-            var htmlBody = CreateRegistrationOTPTemplate(otpCode);
             
-            await SendEmailAsync(request.Email, "Complete Your Registration - Festive Guest", htmlBody);
+            string htmlBody;
+            string subject;
+            
+            if (request.Purpose.ToLower() == "password-reset")
+            {
+                htmlBody = CreateForgotPasswordOTPTemplate(otpCode);
+                subject = "Password Reset Request - Festive Guest";
+            }
+            else
+            {
+                htmlBody = CreateRegistrationOTPTemplate(otpCode);
+                subject = "Complete Your Registration - Festive Guest";
+            }
+            
+            await SendEmailAsync(request.Email, subject, htmlBody);
 
             return new EmailResponse
             {

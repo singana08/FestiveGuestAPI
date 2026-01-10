@@ -14,6 +14,8 @@ public interface IAuthService
     Task<AuthResponse> RegisterAsync(RegisterRequest request);
     Task<AuthResponse> LoginAsync(LoginRequest request);
     Task<AuthResponse> UpdateUserAsync(UpdateUserRequest request);
+    Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request);
+    Task<AuthResponse> ChangePasswordAsync(ChangePasswordRequest request, string userId);
 }
 
 public class AuthService : IAuthService
@@ -163,6 +165,77 @@ public class AuthService : IAuthService
             Message = "User updated successfully.",
             User = MapToUserDto(updatedUser)
         };
+    }
+
+    public async Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        try
+        {
+            // Validate OTP
+            var otpValid = await _emailService.ValidateOTPAsync(new ValidateOTPRequest 
+            { 
+                Email = request.Email, 
+                OtpCode = request.OtpCode 
+            });
+            
+            if (!otpValid.Success)
+            {
+                return new AuthResponse { Success = false, Message = "Invalid or expired OTP." };
+            }
+
+            // Get user by email
+            var user = await _userRepository.GetUserByEmailAsync(request.Email.ToLower());
+            if (user == null)
+            {
+                return new AuthResponse { Success = false, Message = "User not found." };
+            }
+
+            // Update password
+            user.Password = HashPassword(request.NewPassword);
+            await _userRepository.UpdateUserAsync(user);
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Password reset successfully."
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponse { Success = false, Message = $"Password reset failed: {ex.Message}" };
+        }
+    }
+
+    public async Task<AuthResponse> ChangePasswordAsync(ChangePasswordRequest request, string userId)
+    {
+        try
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return new AuthResponse { Success = false, Message = "User not found." };
+            }
+
+            // Verify current password
+            if (!VerifyPassword(request.CurrentPassword, user.Password))
+            {
+                return new AuthResponse { Success = false, Message = "Current password is incorrect." };
+            }
+
+            // Update password
+            user.Password = HashPassword(request.NewPassword);
+            await _userRepository.UpdateUserAsync(user);
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Password changed successfully."
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponse { Success = false, Message = $"Password change failed: {ex.Message}" };
+        }
     }
 
     private string HashPassword(string password)
