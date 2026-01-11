@@ -44,13 +44,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins(
-            "http://localhost:3000", 
-            "http://localhost:5173", 
-            "https://localhost:5173",
-            "https://festive-guest.azurewebsites.net",
-            "https://*.azurestaticapps.net"
-        )
+        policy.SetIsOriginAllowed(origin => true)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -115,6 +109,7 @@ builder.Services.AddSingleton(secrets);
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IOTPRepository, OTPRepository>();
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
+builder.Services.AddScoped<IGuestPostRepository, GuestPostRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
