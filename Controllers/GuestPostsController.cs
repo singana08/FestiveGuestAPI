@@ -52,6 +52,7 @@ namespace FestiveGuestAPI.Controllers
                     Facilities = request.Facilities != null ? string.Join(",", request.Facilities) : "",
                     Visitors = request.Visitors,
                     Days = request.Days,
+                    VisitingDate = request.VisitingDate,
                     Status = "Active",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -152,6 +153,7 @@ namespace FestiveGuestAPI.Controllers
                 post.Facilities = request.Facilities != null ? string.Join(",", request.Facilities) : post.Facilities;
                 post.Visitors = request.Visitors ?? post.Visitors;
                 post.Days = request.Days ?? post.Days;
+                post.VisitingDate = request.VisitingDate ?? post.VisitingDate;
                 post.UpdatedAt = DateTime.UtcNow;
 
                 var updated = await _guestPostRepository.UpdateAsync(post);
@@ -172,6 +174,7 @@ namespace FestiveGuestAPI.Controllers
         public List<string>? Facilities { get; set; }
         public int? Visitors { get; set; }
         public int? Days { get; set; }
+        public DateTime? VisitingDate { get; set; }
     }
 
     public class UpdateGuestPostRequest
@@ -182,5 +185,6 @@ namespace FestiveGuestAPI.Controllers
         public List<string>? Facilities { get; set; }
         public int? Visitors { get; set; }
         public int? Days { get; set; }
+        public DateTime? VisitingDate { get; set; }
     }
 }
