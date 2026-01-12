@@ -57,12 +57,17 @@ public class AuthService : IAuthService
             // Validate referral code if provided
             if (!string.IsNullOrWhiteSpace(request.ReferredBy))
             {
+                Console.WriteLine($"DEBUG: Validating referral code: {request.ReferredBy}");
                 var referrer = await _userRepository.GetUserByReferralCodeAsync(request.ReferredBy);
                 if (referrer == null)
                 {
+                    Console.WriteLine($"DEBUG: Invalid referral code: {request.ReferredBy}");
                     return new AuthResponse { Success = false, Message = "Invalid referral code." };
                 }
+                Console.WriteLine($"DEBUG: Valid referral code found for user: {referrer.Name}");
             }
+
+            Console.WriteLine($"DEBUG: Creating user with ReferredBy: '{request.ReferredBy}'");
 
             // Create user entity
             var user = new UserEntity
@@ -77,7 +82,11 @@ public class AuthService : IAuthService
                 ReferredBy = request.ReferredBy ?? string.Empty
             };
 
+            Console.WriteLine($"DEBUG: User entity ReferredBy before save: '{user.ReferredBy}'");
+
             var createdUser = await _userRepository.CreateUserAsync(user);
+
+            Console.WriteLine($"DEBUG: User entity ReferredBy after save: '{createdUser.ReferredBy}'");
 
             // Send registration confirmation email
             try
@@ -299,7 +308,8 @@ public class AuthService : IAuthService
             ProfileImageUrl = user.ProfileImageUrl,
             IsVerified = user.IsVerified,
             CreatedDate = user.CreatedDate,
-            ReferralCode = user.ReferralCode
+            ReferralCode = user.ReferralCode,
+            ReferredBy = user.ReferredBy
         };
     }
 }

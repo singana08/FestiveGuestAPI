@@ -88,8 +88,8 @@ public class UserRepository : IUserRepository
     private string GenerateReferralCode(string userId)
     {
         var random = new Random();
-        var randomPart = random.Next(1000, 9999);
-        return $"FG{userId.Substring(0, Math.Min(5, userId.Length))}{randomPart}".ToUpper();
+        var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        return new string(Enumerable.Range(0, 8).Select(_ => chars[random.Next(chars.Length)]).ToArray());
     }
 
     public async Task<UserEntity> UpdateUserAsync(UserEntity user)

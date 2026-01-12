@@ -91,4 +91,5 @@ public class UserDto
     public bool IsVerified { get; set; }
     public DateTime CreatedDate { get; set; }
     public string ReferralCode { get; set; } = string.Empty;
+    public string ReferredBy { get; set; } = string.Empty;
 }
