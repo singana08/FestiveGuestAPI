@@ -208,6 +208,8 @@ namespace FestiveGuestAPI.Controllers
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public string Location { get; set; } = "";
+        public string? State { get; set; }
+        public string? City { get; set; }
         public string? UserName { get; set; }
         public DateTime? PlanningDate { get; set; }
         public List<string>? Facilities { get; set; }
@@ -221,6 +223,8 @@ namespace FestiveGuestAPI.Controllers
         public string? Title { get; set; }
         public string? Content { get; set; }
         public string? Location { get; set; }
+        public string? State { get; set; }
+        public string? City { get; set; }
         public string? UserName { get; set; }
         public DateTime? PlanningDate { get; set; }
         public List<string>? Facilities { get; set; }
