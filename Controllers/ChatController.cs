@@ -57,6 +57,55 @@ public class ChatController : ControllerBase
         }
     }
 
+    [HttpPost("send")]
+    public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
+    {
+        var userId = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
+        try
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId);
+            if (user == null)
+                return NotFound("User not found");
+
+            var sortedIds = new[] { userId, request.ReceiverId }.OrderBy(x => x).ToArray();
+            var chatRoom = $"chat_{sortedIds[0]}_{sortedIds[1]}";
+
+            var messagesTable = _tableServiceClient.GetTableClient("ChatMessages");
+            await messagesTable.CreateIfNotExistsAsync();
+
+            var messageId = Guid.NewGuid().ToString();
+            var messageEntity = new ChatMessageEntity
+            {
+                PartitionKey = chatRoom,
+                RowKey = messageId,
+                SenderId = userId,
+                SenderName = user.Name,
+                Message = request.Message,
+                Status = "Sent"
+            };
+
+            await messagesTable.AddEntityAsync(messageEntity);
+
+            return Ok(new
+            {
+                success = true,
+                id = messageId,
+                senderId = userId,
+                senderName = user.Name,
+                message = request.Message,
+                timestamp = DateTime.UtcNow,
+                status = "Sent"
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { success = false, message = $"Failed to send message: {ex.Message}" });
+        }
+    }
+
     [HttpGet("messages/{otherUserId}")]
     public async Task<IActionResult> GetMessages(string otherUserId)
     {
@@ -238,6 +287,12 @@ public class ChatController : ControllerBase
 public class StartChatRequest
 {
     public string OtherUserId { get; set; } = string.Empty;
+}
+
+public class SendMessageRequest
+{
+    public string ReceiverId { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
 }
 
 public class MarkStatusRequest
