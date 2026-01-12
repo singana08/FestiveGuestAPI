@@ -67,6 +67,7 @@ public class ChatHub : Hub
                 RowKey = messageId,
                 SenderId = userId,
                 SenderName = user.Name,
+                ReceiverId = otherUserId,
                 Message = message,
                 Status = "Sent"
             };
@@ -78,6 +79,7 @@ public class ChatHub : Hub
                 id = messageId,
                 senderId = userId,
                 senderName = user.Name,
+                receiverId = otherUserId,
                 message = message,
                 timestamp = DateTime.UtcNow,
                 status = "Sent"

@@ -92,6 +92,7 @@ public class ChatMessageEntity : ITableEntity
     
     public string SenderId { get; set; } = string.Empty;
     public string SenderName { get; set; } = string.Empty;
+    public string ReceiverId { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public string Status { get; set; } = "Sent";
     public DateTime? DeliveredAt { get; set; }

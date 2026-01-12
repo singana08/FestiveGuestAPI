@@ -83,6 +83,7 @@ public class ChatController : ControllerBase
                 RowKey = messageId,
                 SenderId = userId,
                 SenderName = user.Name,
+                ReceiverId = request.ReceiverId,
                 Message = request.Message,
                 Status = "Sent"
             };
@@ -95,6 +96,7 @@ public class ChatController : ControllerBase
                 id = messageId,
                 senderId = userId,
                 senderName = user.Name,
+                receiverId = request.ReceiverId,
                 message = request.Message,
                 timestamp = DateTime.UtcNow,
                 status = "Sent"
