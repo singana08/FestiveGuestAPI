@@ -250,30 +250,36 @@ public class ChatController : ControllerBase
                     conversations[otherUserId].LastMessageStatus = entity.Status;
                 }
                 
-                // Count unread messages (messages sent by other user that current user hasn't read)
                 if (entity.SenderId == otherUserId && entity.Status != "Read")
                 {
                     conversations[otherUserId].UnreadCount++;
                 }
             }
 
-            var result = new List<object>();
-            foreach (var conv in conversations.Values.OrderByDescending(c => c.Timestamp))
+            // Batch fetch all users
+            var userCache = new Dictionary<string, UserEntity>();
+            foreach (var otherUserId in conversations.Keys)
             {
-                var otherUser = await _userRepository.GetUserByIdAsync(conv.OtherUserId);
-                result.Add(new {
+                var user = await _userRepository.GetUserByIdAsync(otherUserId);
+                if (user != null)
+                {
+                    userCache[otherUserId] = user;
+                }
+            }
+
+            var result = conversations.Values
+                .OrderByDescending(c => c.Timestamp)
+                .Select(conv => new {
                     chatRoom = conv.ChatRoom,
                     otherUserId = conv.OtherUserId,
-                    otherUserName = otherUser?.Name ?? "Unknown",
-                    profileImageUrl = otherUser?.ProfileImageUrl ?? "",
+                    otherUserName = userCache.ContainsKey(conv.OtherUserId) ? userCache[conv.OtherUserId].Name : "Unknown",
+                    profileImageUrl = userCache.ContainsKey(conv.OtherUserId) ? userCache[conv.OtherUserId].ProfileImageUrl : "",
                     lastMessage = conv.LastMessage,
-                    lastSenderName = conv.LastSenderName,
                     lastSenderId = conv.LastSenderId,
                     timestamp = conv.Timestamp,
-                    status = conv.LastMessageStatus,
                     unreadCount = conv.UnreadCount
-                });
-            }
+                })
+                .ToList();
 
             return Ok(result);
         }
