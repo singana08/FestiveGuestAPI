@@ -133,6 +133,7 @@ public class ChatController : ControllerBase
                     id = entity.RowKey,
                     senderId = entity.SenderId,
                     senderName = entity.SenderName,
+                    receiverId = entity.ReceiverId,
                     message = entity.Message,
                     timestamp = entity.Timestamp,
                     status = entity.Status,
