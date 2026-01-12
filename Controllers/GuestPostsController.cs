@@ -123,6 +123,45 @@ namespace FestiveGuestAPI.Controllers
                 return StatusCode(500, new { message = "Internal server error", error = ex.Message });
             }
         }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdatePost(string id, [FromBody] UpdateGuestPostRequest request)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User ID not found in token");
+                }
+
+                var post = await _guestPostRepository.GetByIdAsync(id);
+                if (post == null)
+                {
+                    return NotFound("Post not found");
+                }
+
+                if (post.UserId != userId)
+                {
+                    return Forbid();
+                }
+
+                post.Title = request.Title?.Trim() ?? post.Title;
+                post.Content = request.Content?.Trim() ?? post.Content;
+                post.Location = request.Location?.Trim() ?? post.Location;
+                post.Facilities = request.Facilities != null ? string.Join(",", request.Facilities) : post.Facilities;
+                post.Visitors = request.Visitors ?? post.Visitors;
+                post.Days = request.Days ?? post.Days;
+                post.UpdatedAt = DateTime.UtcNow;
+
+                var updated = await _guestPostRepository.UpdateAsync(post);
+                return Ok(updated);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+            }
+        }
     }
 
     public class CreateGuestPostRequest
@@ -130,6 +169,16 @@ namespace FestiveGuestAPI.Controllers
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public string Location { get; set; } = "";
+        public List<string>? Facilities { get; set; }
+        public int? Visitors { get; set; }
+        public int? Days { get; set; }
+    }
+
+    public class UpdateGuestPostRequest
+    {
+        public string? Title { get; set; }
+        public string? Content { get; set; }
+        public string? Location { get; set; }
         public List<string>? Facilities { get; set; }
         public int? Visitors { get; set; }
         public int? Days { get; set; }

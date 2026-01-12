@@ -79,5 +79,11 @@ namespace FestiveGuestAPI.Services
                 return false;
             }
         }
+
+        public async Task<HostPostEntity> UpdateAsync(HostPostEntity post)
+        {
+            await _tableClient.UpdateEntityAsync(post, post.ETag);
+            return post;
+        }
     }
 }

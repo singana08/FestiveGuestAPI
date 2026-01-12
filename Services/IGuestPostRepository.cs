@@ -9,5 +9,6 @@ namespace FestiveGuestAPI.Services
         Task<GuestPostEntity?> GetByIdAsync(string id);
         Task<List<GuestPostEntity>> GetByUserIdAsync(string userId);
         Task<bool> DeleteAsync(string id, string userId);
+        Task<GuestPostEntity> UpdateAsync(GuestPostEntity post);
     }
 }
