@@ -70,7 +70,11 @@ public class ChatController : ControllerBase
             if (user == null)
                 return NotFound("User not found");
 
-            var sortedIds = new[] { userId, request.ReceiverId }.OrderBy(x => x).ToArray();
+            var recipientId = request.GetRecipientId();
+            if (string.IsNullOrEmpty(recipientId))
+                return BadRequest("RecipientId is required");
+
+            var sortedIds = new[] { userId, recipientId }.OrderBy(x => x).ToArray();
             var chatRoom = $"chat_{sortedIds[0]}_{sortedIds[1]}";
 
             var messagesTable = _tableServiceClient.GetTableClient("ChatMessages");
@@ -83,7 +87,7 @@ public class ChatController : ControllerBase
                 RowKey = messageId,
                 SenderId = userId,
                 SenderName = user.Name,
-                ReceiverId = request.ReceiverId,
+                ReceiverId = recipientId,
                 Message = request.Message,
                 Status = "Sent"
             };
@@ -96,7 +100,7 @@ public class ChatController : ControllerBase
                 id = messageId,
                 senderId = userId,
                 senderName = user.Name,
-                receiverId = request.ReceiverId,
+                receiverId = recipientId,
                 message = request.Message,
                 timestamp = DateTime.UtcNow,
                 status = "Sent"
@@ -273,7 +277,11 @@ public class StartChatRequest
 public class SendMessageRequest
 {
     public string ReceiverId { get; set; } = string.Empty;
+    public string RecipientId { get; set; } = string.Empty; // Frontend compatibility
     public string Message { get; set; } = string.Empty;
+    
+    // Property to get the actual recipient ID from either field
+    public string GetRecipientId() => !string.IsNullOrEmpty(RecipientId) ? RecipientId : ReceiverId;
 }
 
 public class MarkStatusRequest
