@@ -44,7 +44,7 @@ namespace FestiveGuestAPI.Controllers
                     PartitionKey = "GuestPost",
                     RowKey = $"post_{DateTime.UtcNow.Ticks}_{Guid.NewGuid().ToString("N")[..8]}",
                     UserId = userId,
-                    UserName = userName ?? "Unknown",
+                    UserName = !string.IsNullOrWhiteSpace(request.UserName) ? request.UserName : (userName ?? "Unknown"),
                     UserEmail = userEmail ?? "",
                     Title = request.Title.Trim(),
                     Content = request.Content.Trim(),
@@ -52,7 +52,7 @@ namespace FestiveGuestAPI.Controllers
                     Facilities = request.Facilities != null ? string.Join(",", request.Facilities) : "",
                     Visitors = request.Visitors,
                     Days = request.Days,
-                    VisitingDate = request.VisitingDate,
+                    VisitingDate = request.PlanningDate ?? request.VisitingDate,
                     Status = "Active",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -74,7 +74,25 @@ namespace FestiveGuestAPI.Controllers
             try
             {
                 var posts = await _guestPostRepository.GetAllActiveAsync();
-                return Ok(posts);
+                var response = posts.Select(p => new
+                {
+                    rowKey = p.RowKey,
+                    userId = p.UserId,
+                    userName = p.UserName,
+                    userEmail = p.UserEmail,
+                    title = p.Title,
+                    content = p.Content,
+                    location = p.Location,
+                    facilities = p.Facilities,
+                    visitors = p.Visitors,
+                    days = p.Days,
+                    planningDate = p.VisitingDate,
+                    visitingDate = p.VisitingDate,
+                    status = p.Status,
+                    createdAt = p.CreatedAt,
+                    updatedAt = p.UpdatedAt
+                });
+                return Ok(response);
             }
             catch (Exception ex)
             {
@@ -92,7 +110,25 @@ namespace FestiveGuestAPI.Controllers
                 {
                     return NotFound("Post not found");
                 }
-                return Ok(post);
+                var response = new
+                {
+                    rowKey = post.RowKey,
+                    userId = post.UserId,
+                    userName = post.UserName,
+                    userEmail = post.UserEmail,
+                    title = post.Title,
+                    content = post.Content,
+                    location = post.Location,
+                    facilities = post.Facilities,
+                    visitors = post.Visitors,
+                    days = post.Days,
+                    planningDate = post.VisitingDate,
+                    visitingDate = post.VisitingDate,
+                    status = post.Status,
+                    createdAt = post.CreatedAt,
+                    updatedAt = post.UpdatedAt
+                };
+                return Ok(response);
             }
             catch (Exception ex)
             {
@@ -150,10 +186,11 @@ namespace FestiveGuestAPI.Controllers
                 post.Title = request.Title?.Trim() ?? post.Title;
                 post.Content = request.Content?.Trim() ?? post.Content;
                 post.Location = request.Location?.Trim() ?? post.Location;
+                post.UserName = request.UserName ?? post.UserName;
                 post.Facilities = request.Facilities != null ? string.Join(",", request.Facilities) : post.Facilities;
                 post.Visitors = request.Visitors ?? post.Visitors;
                 post.Days = request.Days ?? post.Days;
-                post.VisitingDate = request.VisitingDate ?? post.VisitingDate;
+                post.VisitingDate = request.PlanningDate ?? request.VisitingDate ?? post.VisitingDate;
                 post.UpdatedAt = DateTime.UtcNow;
 
                 var updated = await _guestPostRepository.UpdateAsync(post);
@@ -171,6 +208,8 @@ namespace FestiveGuestAPI.Controllers
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public string Location { get; set; } = "";
+        public string? UserName { get; set; }
+        public DateTime? PlanningDate { get; set; }
         public List<string>? Facilities { get; set; }
         public int? Visitors { get; set; }
         public int? Days { get; set; }
@@ -182,6 +221,8 @@ namespace FestiveGuestAPI.Controllers
         public string? Title { get; set; }
         public string? Content { get; set; }
         public string? Location { get; set; }
+        public string? UserName { get; set; }
+        public DateTime? PlanningDate { get; set; }
         public List<string>? Facilities { get; set; }
         public int? Visitors { get; set; }
         public int? Days { get; set; }
