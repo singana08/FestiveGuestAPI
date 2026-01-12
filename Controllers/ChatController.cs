@@ -205,83 +205,55 @@ public class ChatController : ControllerBase
     public async Task<IActionResult> GetConversations()
     {
         var userId = User.FindFirst("userId")?.Value;
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
         try
         {
             var messagesTable = _tableServiceClient.GetTableClient("ChatMessages");
             await messagesTable.CreateIfNotExistsAsync();
 
-            var conversations = new Dictionary<string, ConversationData>();
-            
-            await foreach (var entity in messagesTable.QueryAsync<ChatMessageEntity>())
+            var userMessages = new List<ChatMessageEntity>();
+            await foreach (var msg in messagesTable.QueryAsync<ChatMessageEntity>())
             {
-                var chatRoom = entity.PartitionKey;
-                if (!chatRoom.StartsWith("chat_")) continue;
-                
-                var userIds = chatRoom.Replace("chat_", "").Split('_');
-                if (userIds.Length != 2 || !userIds.Contains(userId)) continue;
-                
-                var otherUserId = userIds.First(id => id != userId);
-                
-                if (!conversations.ContainsKey(otherUserId))
-                {
-                    conversations[otherUserId] = new ConversationData
-                    {
-                        ChatRoom = chatRoom,
-                        OtherUserId = otherUserId,
-                        LastMessage = entity.Message,
-                        LastSenderName = entity.SenderName,
-                        LastSenderId = entity.SenderId,
-                        Timestamp = entity.Timestamp ?? DateTimeOffset.MinValue,
-                        LastMessageStatus = entity.Status,
-                        UnreadCount = 0
+                if (!msg.PartitionKey.StartsWith("chat_")) continue;
+                var ids = msg.PartitionKey.Replace("chat_", "").Split('_');
+                if (ids.Length == 2 && ids.Contains(userId))
+                    userMessages.Add(msg);
+            }
+
+            var conversations = userMessages
+                .GroupBy(m => m.PartitionKey.Replace("chat_", "").Split('_').First(id => id != userId))
+                .Select(g => {
+                    var latest = g.OrderByDescending(m => m.Timestamp).First();
+                    return new {
+                        chatRoom = latest.PartitionKey,
+                        otherUserId = g.Key,
+                        lastMessage = latest.Message,
+                        lastSenderId = latest.SenderId,
+                        timestamp = latest.Timestamp ?? DateTimeOffset.MinValue,
+                        unreadCount = g.Count(m => m.SenderId == g.Key && m.Status != "Read")
                     };
-                }
-                else if (conversations[otherUserId].Timestamp < entity.Timestamp)
-                {
-                    conversations[otherUserId].LastMessage = entity.Message;
-                    conversations[otherUserId].LastSenderName = entity.SenderName;
-                    conversations[otherUserId].LastSenderId = entity.SenderId;
-                    conversations[otherUserId].Timestamp = entity.Timestamp ?? DateTimeOffset.MinValue;
-                    conversations[otherUserId].LastMessageStatus = entity.Status;
-                }
-                
-                if (entity.SenderId == otherUserId && entity.Status != "Read")
-                {
-                    conversations[otherUserId].UnreadCount++;
-                }
-            }
-
-            // Batch fetch all users
-            var userCache = new Dictionary<string, UserEntity>();
-            foreach (var otherUserId in conversations.Keys)
-            {
-                var user = await _userRepository.GetUserByIdAsync(otherUserId);
-                if (user != null)
-                {
-                    userCache[otherUserId] = user;
-                }
-            }
-
-            var result = conversations.Values
-                .OrderByDescending(c => c.Timestamp)
-                .Select(conv => new {
-                    chatRoom = conv.ChatRoom,
-                    otherUserId = conv.OtherUserId,
-                    otherUserName = userCache.ContainsKey(conv.OtherUserId) ? userCache[conv.OtherUserId].Name : "Unknown",
-                    profileImageUrl = userCache.ContainsKey(conv.OtherUserId) ? userCache[conv.OtherUserId].ProfileImageUrl : "",
-                    lastMessage = conv.LastMessage,
-                    lastSenderId = conv.LastSenderId,
-                    timestamp = conv.Timestamp,
-                    unreadCount = conv.UnreadCount
                 })
+                .OrderByDescending(c => c.timestamp)
                 .ToList();
 
-            return Ok(result);
+            var userCache = new Dictionary<string, UserEntity>();
+            foreach (var conv in conversations)
+            {
+                var user = await _userRepository.GetUserByIdAsync(conv.otherUserId);
+                if (user != null) userCache[conv.otherUserId] = user;
+            }
+
+            return Ok(conversations.Select(c => new {
+                c.chatRoom,
+                c.otherUserId,
+                otherUserName = userCache.GetValueOrDefault(c.otherUserId)?.Name ?? "Unknown",
+                profileImageUrl = userCache.GetValueOrDefault(c.otherUserId)?.ProfileImageUrl ?? "",
+                c.lastMessage,
+                c.lastSenderId,
+                c.timestamp,
+                c.unreadCount
+            }).ToList());
         }
         catch (Exception ex)
         {
