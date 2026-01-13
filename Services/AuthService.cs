@@ -79,7 +79,8 @@ public class AuthService : IAuthService
                 UserType = request.UserType,
                 Location = request.Location,
                 Bio = request.Bio,
-                ReferredBy = request.ReferredBy ?? string.Empty
+                ReferredBy = request.ReferredBy ?? string.Empty,
+                HostingAreas = request.HostingAreas ?? string.Empty
             };
 
             Console.WriteLine($"DEBUG: User entity ReferredBy before save: '{user.ReferredBy}'");
@@ -295,6 +296,16 @@ public class AuthService : IAuthService
 
     private UserDto MapToUserDto(UserEntity user)
     {
+        List<HostingAreaDto>? hostingAreas = null;
+        if (!string.IsNullOrEmpty(user.HostingAreas))
+        {
+            try
+            {
+                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas);
+            }
+            catch { }
+        }
+
         return new UserDto
         {
             UserId = user.RowKey,
@@ -309,7 +320,8 @@ public class AuthService : IAuthService
             IsVerified = user.IsVerified,
             CreatedDate = user.CreatedDate,
             ReferralCode = user.ReferralCode,
-            ReferredBy = user.ReferredBy
+            ReferredBy = user.ReferredBy,
+            HostingAreas = hostingAreas
         };
     }
 }

@@ -22,6 +22,7 @@ public class RegisterRequest
     public string Location { get; set; } = string.Empty;
     public string Bio { get; set; } = string.Empty;
     public string? ReferredBy { get; set; }
+    public string? HostingAreas { get; set; } // JSON string for hosting areas
 }
 
 public class LoginRequest
@@ -92,4 +93,11 @@ public class UserDto
     public DateTime CreatedDate { get; set; }
     public string ReferralCode { get; set; } = string.Empty;
     public string ReferredBy { get; set; } = string.Empty;
+    public List<HostingAreaDto>? HostingAreas { get; set; }
+}
+
+public class HostingAreaDto
+{
+    public string State { get; set; } = string.Empty;
+    public List<string> Cities { get; set; } = new();
 }

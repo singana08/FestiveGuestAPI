@@ -25,6 +25,7 @@ public class UserEntity : ITableEntity
     public DateTime CreatedDate { get; set; }
     public string ReferralCode { get; set; } = string.Empty;
     public string ReferredBy { get; set; } = string.Empty;
+    public string HostingAreas { get; set; } = string.Empty; // JSON string for hosting areas
 }
 
 // OTPs table
