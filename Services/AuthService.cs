@@ -301,9 +301,23 @@ public class AuthService : IAuthService
         {
             try
             {
-                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas);
+                Console.WriteLine($"DEBUG: Raw HostingAreas from DB: {user.HostingAreas}");
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas, options);
+                Console.WriteLine($"DEBUG: Parsed HostingAreas count: {hostingAreas?.Count}");
+                // Filter out empty entries
+                hostingAreas = hostingAreas?.Where(h => !string.IsNullOrEmpty(h.State) || h.Cities.Any()).ToList();
+                Console.WriteLine($"DEBUG: Filtered HostingAreas count: {hostingAreas?.Count}");
+                if (hostingAreas?.Count == 0) hostingAreas = null;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"DEBUG: Error parsing HostingAreas: {ex.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("DEBUG: HostingAreas is empty or null in DB");
         }
 
         return new UserDto

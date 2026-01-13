@@ -71,7 +71,10 @@ public class UserController : ControllerBase
         {
             try
             {
-                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas);
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas, options);
+                hostingAreas = hostingAreas?.Where(h => !string.IsNullOrEmpty(h.State) || h.Cities.Any()).ToList();
+                if (hostingAreas?.Count == 0) hostingAreas = null;
             }
             catch { }
         }
@@ -171,6 +174,20 @@ public class UserController : ControllerBase
             catch { }
         }
 
+        // Parse hosting areas
+        List<HostingAreaDto>? hostingAreas = null;
+        if (!string.IsNullOrEmpty(user.HostingAreas))
+        {
+            try
+            {
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas, options);
+                hostingAreas = hostingAreas?.Where(h => !string.IsNullOrEmpty(h.State) || h.Cities.Any()).ToList();
+                if (hostingAreas?.Count == 0) hostingAreas = null;
+            }
+            catch { }
+        }
+
         // Get reviews and calculate ratings
         var reviewData = await GetReviewsData(request.UserId);
 
@@ -184,6 +201,7 @@ public class UserController : ControllerBase
             location = user.Location,
             bio = user.Bio,
             profileImageUrl,
+            hostingAreas,
             createdAt = user.CreatedDate,
             status = user.Status,
             averageRating = reviewData.AverageRating,
@@ -213,6 +231,20 @@ public class UserController : ControllerBase
             catch { }
         }
 
+        // Parse hosting areas
+        List<HostingAreaDto>? hostingAreas = null;
+        if (!string.IsNullOrEmpty(user.HostingAreas))
+        {
+            try
+            {
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas, options);
+                hostingAreas = hostingAreas?.Where(h => !string.IsNullOrEmpty(h.State) || h.Cities.Any()).ToList();
+                if (hostingAreas?.Count == 0) hostingAreas = null;
+            }
+            catch { }
+        }
+
         // Get reviews and calculate ratings
         var reviewData = await GetReviewsData(user.RowKey);
 
@@ -226,6 +258,7 @@ public class UserController : ControllerBase
             location = user.Location,
             bio = user.Bio,
             profileImageUrl,
+            hostingAreas,
             createdAt = user.CreatedDate,
             status = user.Status,
             averageRating = reviewData.AverageRating,
