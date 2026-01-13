@@ -65,6 +65,17 @@ public class UserController : ControllerBase
             }
         }
 
+        // Parse hosting areas if available
+        List<HostingAreaDto>? hostingAreas = null;
+        if (!string.IsNullOrEmpty(user.HostingAreas))
+        {
+            try
+            {
+                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas);
+            }
+            catch { }
+        }
+
         var userDto = new UserDto
         {
             UserId = user.RowKey,
@@ -78,7 +89,8 @@ public class UserController : ControllerBase
             ProfileImageUrl = profileImageUrl,
             IsVerified = user.IsVerified,
             CreatedDate = user.CreatedDate,
-            ReferralCode = user.ReferralCode
+            ReferralCode = user.ReferralCode,
+            HostingAreas = hostingAreas
         };
 
         return Ok(userDto);
