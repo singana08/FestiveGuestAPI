@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using FestiveGuestAPI.Services;
 using FestiveGuestAPI.Models;
+using FestiveGuestAPI.DTOs;
 using System.Security.Claims;
 
 namespace FestiveGuestAPI.Controllers
@@ -24,7 +25,7 @@ namespace FestiveGuestAPI.Controllers
             try
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
+                var userName = User.FindFirst("name")?.Value;
                 var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
 
                 if (string.IsNullOrEmpty(userId))
@@ -52,6 +53,7 @@ namespace FestiveGuestAPI.Controllers
                     Amenities = request.Amenities != null ? string.Join(",", request.Amenities) : "",
                     MaxGuests = request.MaxGuests,
                     PricePerNight = request.PricePerNight,
+                    CommencementDate = request.CommencementDate,
                     Status = "Active",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -67,12 +69,25 @@ namespace FestiveGuestAPI.Controllers
         }
 
         [HttpGet]
-        [AllowAnonymous]
         public async Task<IActionResult> GetAllPosts()
         {
             try
             {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User ID not found in token");
+                }
+                
                 var posts = await _hostPostRepository.GetAllActiveAsync();
+                var userRepository = HttpContext.RequestServices.GetService<IUserRepository>();
+                var currentUser = await userRepository?.GetUserByIdAsync(userId);
+                
+                if (currentUser?.UserType == "Host")
+                {
+                    return Ok(new List<object>());
+                }
+                
                 return Ok(posts);
             }
             catch (Exception ex)
@@ -92,6 +107,27 @@ namespace FestiveGuestAPI.Controllers
                     return NotFound("Post not found");
                 }
                 return Ok(post);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+            }
+        }
+
+        [HttpGet("my-posts")]
+        public async Task<IActionResult> GetMyPosts()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User ID not found in token");
+                }
+
+                var allPosts = await _hostPostRepository.GetAllActiveAsync();
+                var myPosts = allPosts.Where(p => p.UserId == userId).ToList();
+                return Ok(myPosts);
             }
             catch (Exception ex)
             {
@@ -152,6 +188,7 @@ namespace FestiveGuestAPI.Controllers
                 post.Amenities = request.Amenities != null ? string.Join(",", request.Amenities) : post.Amenities;
                 post.MaxGuests = request.MaxGuests ?? post.MaxGuests;
                 post.PricePerNight = request.PricePerNight ?? post.PricePerNight;
+                post.CommencementDate = request.CommencementDate ?? post.CommencementDate;
                 post.UpdatedAt = DateTime.UtcNow;
 
                 var updated = await _hostPostRepository.UpdateAsync(post);
@@ -172,6 +209,7 @@ namespace FestiveGuestAPI.Controllers
         public List<string>? Amenities { get; set; }
         public int? MaxGuests { get; set; }
         public decimal? PricePerNight { get; set; }
+        public DateTime? CommencementDate { get; set; }
     }
 
     public class UpdateHostPostRequest
@@ -182,5 +220,6 @@ namespace FestiveGuestAPI.Controllers
         public List<string>? Amenities { get; set; }
         public int? MaxGuests { get; set; }
         public decimal? PricePerNight { get; set; }
+        public DateTime? CommencementDate { get; set; }
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using FestiveGuestAPI.Services;
 using FestiveGuestAPI.Models;
+using FestiveGuestAPI.DTOs;
 using System.Security.Claims;
 
 namespace FestiveGuestAPI.Controllers
@@ -24,7 +25,7 @@ namespace FestiveGuestAPI.Controllers
             try
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
+                var userName = User.FindFirst("name")?.Value;
                 var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
 
                 if (string.IsNullOrEmpty(userId))
@@ -68,12 +69,48 @@ namespace FestiveGuestAPI.Controllers
         }
 
         [HttpGet]
-        [AllowAnonymous]
         public async Task<IActionResult> GetAllPosts()
         {
             try
             {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User ID not found in token");
+                }
+                
                 var posts = await _guestPostRepository.GetAllActiveAsync();
+                var userRepository = HttpContext.RequestServices.GetService<IUserRepository>();
+                var currentUser = await userRepository?.GetUserByIdAsync(userId);
+                
+                if (currentUser?.UserType == "Host")
+                {
+                    if (string.IsNullOrEmpty(currentUser.HostingAreas))
+                    {
+                        return Ok(new List<object>());
+                    }
+                    
+                    try
+                    {
+                        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        var hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(currentUser.HostingAreas, options);
+                        
+                        if (hostingAreas?.Any() != true)
+                        {
+                            return Ok(new List<object>());
+                        }
+                        
+                        var hostCities = hostingAreas
+                            .SelectMany(h => h.Cities.Select(c => c.ToLower()))
+                            .ToHashSet();
+                        
+                        posts = posts.Where(p => 
+                            hostCities.Any(city => p.Location.ToLower().Contains(city))
+                        ).ToList();
+                    }
+                    catch { return Ok(new List<object>()); }
+                }
+                
                 var response = posts.Select(p => new
                 {
                     rowKey = p.RowKey,
@@ -128,6 +165,46 @@ namespace FestiveGuestAPI.Controllers
                     createdAt = post.CreatedAt,
                     updatedAt = post.UpdatedAt
                 };
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+            }
+        }
+
+        [HttpGet("my-posts")]
+        public async Task<IActionResult> GetMyPosts()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User ID not found in token");
+                }
+
+                var allPosts = await _guestPostRepository.GetAllActiveAsync();
+                var myPosts = allPosts.Where(p => p.UserId == userId).ToList();
+
+                var response = myPosts.Select(p => new
+                {
+                    rowKey = p.RowKey,
+                    userId = p.UserId,
+                    userName = p.UserName,
+                    userEmail = p.UserEmail,
+                    title = p.Title,
+                    content = p.Content,
+                    location = p.Location,
+                    facilities = p.Facilities,
+                    visitors = p.Visitors,
+                    days = p.Days,
+                    planningDate = p.VisitingDate,
+                    visitingDate = p.VisitingDate,
+                    status = p.Status,
+                    createdAt = p.CreatedAt,
+                    updatedAt = p.UpdatedAt
+                });
                 return Ok(response);
             }
             catch (Exception ex)

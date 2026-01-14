@@ -19,6 +19,7 @@ namespace FestiveGuestAPI.Models
         public string Amenities { get; set; } = "";
         public int? MaxGuests { get; set; }
         public decimal? PricePerNight { get; set; }
+        public DateTime? CommencementDate { get; set; }
         public string Status { get; set; } = "Active";
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
