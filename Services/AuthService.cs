@@ -148,24 +148,11 @@ public class AuthService : IAuthService
             return new AuthResponse { Success = false, Message = "User not found." };
         }
 
-        // Update only provided fields
-        if (!string.IsNullOrEmpty(request.Name))
-            user.Name = request.Name;
-        
-        if (!string.IsNullOrEmpty(request.Phone))
-        {
-            if (!IsValidPhone(request.Phone))
-            {
-                return new AuthResponse { Success = false, Message = "Invalid phone number format." };
-            }
-            user.Phone = request.Phone;
-        }
-        
-        if (!string.IsNullOrEmpty(request.Location))
-            user.Location = request.Location;
-        
         if (!string.IsNullOrEmpty(request.Bio))
             user.Bio = request.Bio;
+        
+        if (request.HostingAreas != null)
+            user.HostingAreas = request.HostingAreas;
 
         var updatedUser = await _userRepository.UpdateUserAsync(user);
 

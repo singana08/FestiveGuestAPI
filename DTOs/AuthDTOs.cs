@@ -39,14 +39,8 @@ public class UpdateUserRequest
     [Required]
     public string UserId { get; set; } = string.Empty;
     
-    [MinLength(2)]
-    public string? Name { get; set; }
-    
-    [Phone]
-    public string? Phone { get; set; }
-    
-    public string? Location { get; set; }
     public string? Bio { get; set; }
+    public string? HostingAreas { get; set; }
 }
 
 public class ResetPasswordRequest
