@@ -34,6 +34,22 @@ public class UserController : ControllerBase
         _tableServiceClient = tableServiceClient;
     }
 
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateUserRequest request)
+    {
+        var userId = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        request.UserId = userId;
+        var authService = HttpContext.RequestServices.GetService<IAuthService>();
+        var result = await authService!.UpdateUserAsync(request);
+
+        if (!result.Success)
+            return BadRequest(new { error = result.Message });
+
+        return Ok(result);
+    }
+
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
     {
