@@ -22,12 +22,14 @@ public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
     private readonly IEmailService _emailService;
+    private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly AppSecrets _secrets;
 
-    public AuthService(IUserRepository userRepository, IEmailService emailService, AppSecrets secrets)
+    public AuthService(IUserRepository userRepository, IEmailService emailService, ISubscriptionRepository subscriptionRepository, AppSecrets secrets)
     {
         _userRepository = userRepository;
         _emailService = emailService;
+        _subscriptionRepository = subscriptionRepository;
         _secrets = secrets;
     }
 
@@ -104,7 +106,7 @@ public class AuthService : IAuthService
                 Success = true,
                 Message = "User registered successfully.",
                 User = MapToUserDto(createdUser),
-                Token = GenerateToken(createdUser.RowKey, createdUser.Name)
+                Token = GenerateToken(createdUser.RowKey, createdUser.Name, createdUser.Email, createdUser.UserType)
             };
         }
         catch (Exception ex)
@@ -136,7 +138,7 @@ public class AuthService : IAuthService
             Success = true,
             Message = "Login successful.",
             User = MapToUserDto(user),
-            Token = GenerateToken(user.RowKey, user.Name)
+            Token = GenerateToken(user.RowKey, user.Name, user.Email, user.UserType)
         };
     }
 
@@ -252,7 +254,7 @@ public class AuthService : IAuthService
         return phone.Length >= 10 && phone.All(char.IsDigit);
     }
 
-    private string GenerateToken(string userId, string userName = "")
+    private string GenerateToken(string userId, string userName = "", string email = "", string userType = "")
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(_secrets.JwtSecretKey);
@@ -266,6 +268,16 @@ public class AuthService : IAuthService
         if (!string.IsNullOrEmpty(userName))
         {
             claims.Add(new Claim("name", userName));
+        }
+
+        if (!string.IsNullOrEmpty(email))
+        {
+            claims.Add(new Claim("email", email));
+        }
+
+        if (!string.IsNullOrEmpty(userType))
+        {
+            claims.Add(new Claim("userType", userType));
         }
         
         var tokenDescriptor = new SecurityTokenDescriptor
@@ -307,6 +319,20 @@ public class AuthService : IAuthService
             Console.WriteLine("DEBUG: HostingAreas is empty or null in DB");
         }
 
+        var subscription = _subscriptionRepository.GetSubscriptionByUserIdAsync(user.RowKey).Result;
+
+        // Calculate successful referrals
+        int successfulReferrals = 0;
+        if (!string.IsNullOrEmpty(user.ReferralCode))
+        {
+            var allUsers = _userRepository.GetAllUsersAsync().Result;
+            successfulReferrals = allUsers.Count(u => 
+                !string.IsNullOrEmpty(u.ReferredBy) && 
+                u.ReferredBy.Equals(user.ReferralCode, StringComparison.OrdinalIgnoreCase) &&
+                u.Status == "Active"
+            );
+        }
+
         return new UserDto
         {
             UserId = user.RowKey,
@@ -322,7 +348,9 @@ public class AuthService : IAuthService
             CreatedDate = user.CreatedDate,
             ReferralCode = user.ReferralCode,
             ReferredBy = user.ReferredBy,
-            HostingAreas = hostingAreas
+            HostingAreas = hostingAreas,
+            SubscriptionStatus = subscription?.SubscriptionStatus ?? "free",
+            SuccessfulReferrals = successfulReferrals
         };
     }
 }

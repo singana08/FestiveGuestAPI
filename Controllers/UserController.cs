@@ -95,6 +95,18 @@ public class UserController : ControllerBase
             catch { }
         }
 
+        // Calculate successful referrals
+        int successfulReferrals = 0;
+        if (!string.IsNullOrEmpty(user.ReferralCode))
+        {
+            var allUsers = await _userRepository.GetAllUsersAsync();
+            successfulReferrals = allUsers.Count(u => 
+                !string.IsNullOrEmpty(u.ReferredBy) && 
+                u.ReferredBy.Equals(user.ReferralCode, StringComparison.OrdinalIgnoreCase) &&
+                u.Status == "Active"
+            );
+        }
+
         var userDto = new UserDto
         {
             UserId = user.RowKey,
@@ -109,7 +121,8 @@ public class UserController : ControllerBase
             IsVerified = user.IsVerified,
             CreatedDate = user.CreatedDate,
             ReferralCode = user.ReferralCode,
-            HostingAreas = hostingAreas
+            HostingAreas = hostingAreas,
+            SuccessfulReferrals = successfulReferrals
         };
 
         return Ok(userDto);

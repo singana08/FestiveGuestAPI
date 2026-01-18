@@ -1,0 +1,44 @@
+### Variables
+@baseUrl = https://festive-guest-api.azurewebsites.net
+@userId = test-user-id
+@adminToken = your-admin-jwt-token-here
+
+### Get Subscription Status
+GET {{baseUrl}}/api/subscription/{{userId}}
+
+### Get All Users with Subscriptions (Admin Only)
+GET {{baseUrl}}/api/subscription/admin/all
+Authorization: Bearer {{adminToken}}
+
+### Update Subscription (Admin Only) - Set to Pending
+POST {{baseUrl}}/api/subscription/update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "subscriptionStatus": "pending",
+  "paymentVerifiedTimestamp": null
+}
+
+### Update Subscription (Admin Only) - Set to Paid
+POST {{baseUrl}}/api/subscription/update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "subscriptionStatus": "paid",
+  "paymentVerifiedTimestamp": "2024-01-15T10:30:00Z"
+}
+
+### Update Subscription (Admin Only) - Set to Free
+POST {{baseUrl}}/api/subscription/update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "subscriptionStatus": "free",
+  "paymentVerifiedTimestamp": null
+}

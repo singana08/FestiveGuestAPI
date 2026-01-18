@@ -86,6 +86,8 @@ public class UserDto
     public string ReferralCode { get; set; } = string.Empty;
     public string ReferredBy { get; set; } = string.Empty;
     public List<HostingAreaDto>? HostingAreas { get; set; }
+    public string SubscriptionStatus { get; set; } = "free";
+    public int SuccessfulReferrals { get; set; } = 0;
 }
 
 public class HostingAreaDto

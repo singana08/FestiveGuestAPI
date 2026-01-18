@@ -27,6 +27,8 @@ public interface ILocationRepository
     Task<IEnumerable<LocationEntity>> GetAllLocationsAsync();
     Task<IEnumerable<LocationEntity>> GetCitiesByStateAsync(string state);
     Task<IEnumerable<string>> GetStatesAsync();
+    Task AddLocationAsync(LocationEntity location);
+    Task DeleteLocationAsync(string state, string city);
 }
 
 public interface IPaymentRepository
@@ -35,4 +37,10 @@ public interface IPaymentRepository
     Task<IEnumerable<PaymentEntity>> GetPendingPaymentsAsync();
     Task<PaymentEntity> CreatePaymentAsync(PaymentEntity payment);
     Task<PaymentEntity> UpdatePaymentStatusAsync(PaymentEntity payment);
+}
+
+public interface ISubscriptionRepository
+{
+    Task<SubscriptionEntity?> GetSubscriptionByUserIdAsync(string userId);
+    Task<SubscriptionEntity> CreateOrUpdateSubscriptionAsync(SubscriptionEntity subscription);
 }

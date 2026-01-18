@@ -41,4 +41,14 @@ public class LocationRepository : ILocationRepository
         }
         return states.OrderBy(s => s);
     }
+
+    public async Task AddLocationAsync(LocationEntity location)
+    {
+        await _tableClient.UpsertEntityAsync(location);
+    }
+
+    public async Task DeleteLocationAsync(string state, string city)
+    {
+        await _tableClient.DeleteEntityAsync(state, city);
+    }
 }

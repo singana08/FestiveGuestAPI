@@ -148,3 +148,17 @@ public class ReviewEntity : ITableEntity
     public string Comment { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }
+
+// Subscriptions table
+public class SubscriptionEntity : ITableEntity
+{
+    public string PartitionKey { get; set; } = string.Empty;
+    public string RowKey { get; set; } = string.Empty;
+    public DateTimeOffset? Timestamp { get; set; }
+    public ETag ETag { get; set; }
+    
+    public string UserId { get; set; } = string.Empty;
+    public string SubscriptionStatus { get; set; } = "free";
+    public DateTime? PaymentVerifiedTimestamp { get; set; }
+    public string UpdatedByAdmin { get; set; } = string.Empty;
+}
