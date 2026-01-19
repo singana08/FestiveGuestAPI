@@ -116,6 +116,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<ISasTokenService, SasTokenService>();
+builder.Services.AddHostedService<FestiveGuestAPI.BackgroundServices.OTPCleanupService>();
 builder.Services.AddSignalR();
 
 var app = builder.Build();

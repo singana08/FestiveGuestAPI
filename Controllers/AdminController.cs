@@ -38,6 +38,18 @@ public class AdminController : ControllerBase
             foreach (var user in users)
             {
                 var subscription = await _subscriptionRepository.GetSubscriptionByUserIdAsync(user.RowKey);
+                
+                // Count successful referrals
+                int successfulReferrals = 0;
+                if (!string.IsNullOrEmpty(user.ReferralCode))
+                {
+                    successfulReferrals = users.Count(u => 
+                        !string.IsNullOrEmpty(u.ReferredBy) && 
+                        u.ReferredBy.Equals(user.ReferralCode, StringComparison.OrdinalIgnoreCase) &&
+                        u.Status == "Active"
+                    );
+                }
+
                 usersWithSubscriptions.Add(new
                 {
                     userId = user.RowKey,
@@ -47,6 +59,9 @@ public class AdminController : ControllerBase
                     userType = user.UserType,
                     status = user.Status,
                     createdDate = user.CreatedDate,
+                    referralCode = user.ReferralCode,
+                    referredBy = user.ReferredBy,
+                    successfulReferrals = successfulReferrals,
                     subscriptionStatus = subscription?.SubscriptionStatus ?? "free",
                     paymentVerifiedTimestamp = subscription?.PaymentVerifiedTimestamp,
                     lastUpdated = subscription?.Timestamp?.DateTime

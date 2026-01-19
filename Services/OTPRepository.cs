@@ -39,8 +39,8 @@ public class OTPRepository : IOTPRepository
         await foreach (var otp in _tableClient.QueryAsync<OTPEntity>(
             o => o.Email == email && o.OTPCode == otpCode && !o.IsUsed))
         {
-            otp.IsUsed = true;
-            await _tableClient.UpdateEntityAsync(otp, otp.ETag);
+            // Delete OTP after successful use instead of marking as used
+            await _tableClient.DeleteEntityAsync(otp.PartitionKey, otp.RowKey);
             break;
         }
     }
@@ -48,10 +48,13 @@ public class OTPRepository : IOTPRepository
     public async Task CleanupExpiredOTPsAsync()
     {
         var expiredOTPs = new List<OTPEntity>();
-        await foreach (var otp in _tableClient.QueryAsync<OTPEntity>(
-            o => o.ExpirationTime < DateTime.UtcNow))
+        await foreach (var otp in _tableClient.QueryAsync<OTPEntity>())
         {
-            expiredOTPs.Add(otp);
+            // Delete expired or used OTPs
+            if (otp.ExpirationTime < DateTime.UtcNow || otp.IsUsed)
+            {
+                expiredOTPs.Add(otp);
+            }
         }
 
         foreach (var otp in expiredOTPs)
