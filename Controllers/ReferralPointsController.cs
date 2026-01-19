@@ -58,16 +58,33 @@ public class ReferralPointsController : ControllerBase
             return Unauthorized();
 
         var history = await _pointsService.GetPointsHistoryAsync(userId);
-        var user = await _userRepository.GetUserByIdAsync(userId);
         
-        var formattedHistory = history.Select(h => new
+        var formattedHistory = new List<object>();
+        foreach (var h in history)
         {
-            userName = user?.Name ?? "Unknown",
-            points = h.Points,
-            type = h.Type,
-            description = h.Description,
-            createdDate = h.CreatedDate
-        });
+            string referredUserName = "";
+            
+            // Extract referred user ID from description if it's an earned transaction
+            if (h.Type == "earned" && h.Description.Contains("referring user "))
+            {
+                var parts = h.Description.Split("referring user ");
+                if (parts.Length > 1)
+                {
+                    var referredUserId = parts[1].Trim();
+                    var referredUser = await _userRepository.GetUserByIdAsync(referredUserId);
+                    referredUserName = referredUser?.Name ?? referredUserId;
+                }
+            }
+            
+            formattedHistory.Add(new
+            {
+                referredUserName = referredUserName,
+                points = h.Points,
+                type = h.Type,
+                description = h.Description,
+                createdDate = h.CreatedDate.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            });
+        }
         
         return Ok(formattedHistory);
     }
