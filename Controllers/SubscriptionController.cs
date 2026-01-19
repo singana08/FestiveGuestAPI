@@ -147,7 +147,8 @@ public class SubscriptionController : ControllerBase
                 UserId = request.UserId,
                 SubscriptionStatus = request.SubscriptionStatus,
                 PaymentVerifiedTimestamp = request.PaymentVerifiedTimestamp,
-                UpdatedByAdmin = adminEmail
+                UpdatedByAdmin = adminEmail,
+                PaymentMethod = request.PaymentMethod
             };
 
             await _subscriptionRepository.CreateOrUpdateSubscriptionAsync(subscription);

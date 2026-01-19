@@ -27,4 +27,6 @@ public class UpdateSubscriptionRequest
     public string SubscriptionStatus { get; set; } = string.Empty;
     
     public DateTime? PaymentVerifiedTimestamp { get; set; }
+    
+    public string PaymentMethod { get; set; } = "cash"; // "cash" or "points"
 }

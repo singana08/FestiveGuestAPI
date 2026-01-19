@@ -162,6 +162,7 @@ public class SubscriptionEntity : ITableEntity
     public string SubscriptionStatus { get; set; } = "free";
     public DateTime? PaymentVerifiedTimestamp { get; set; }
     public string UpdatedByAdmin { get; set; } = string.Empty;
+    public string PaymentMethod { get; set; } = string.Empty; // "cash" or "points"
 }
 
 // PointsTransactions table

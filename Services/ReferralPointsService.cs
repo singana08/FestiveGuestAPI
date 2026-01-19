@@ -64,7 +64,8 @@ public class ReferralPointsService : IReferralPointsService
             UserId = userId,
             SubscriptionStatus = "paid",
             PaymentVerifiedTimestamp = DateTime.UtcNow,
-            UpdatedByAdmin = "System (Points Redemption)"
+            UpdatedByAdmin = "System (Points Redemption)",
+            PaymentMethod = "points"
         };
         await _subscriptionRepository.CreateOrUpdateSubscriptionAsync(subscriptionEntity);
 
