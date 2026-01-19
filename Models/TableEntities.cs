@@ -26,6 +26,7 @@ public class UserEntity : ITableEntity
     public string ReferralCode { get; set; } = string.Empty;
     public string ReferredBy { get; set; } = string.Empty;
     public string HostingAreas { get; set; } = string.Empty; // JSON string for hosting areas
+    public int ReferralPoints { get; set; } = 0;
 }
 
 // OTPs table
@@ -161,4 +162,19 @@ public class SubscriptionEntity : ITableEntity
     public string SubscriptionStatus { get; set; } = "free";
     public DateTime? PaymentVerifiedTimestamp { get; set; }
     public string UpdatedByAdmin { get; set; } = string.Empty;
+}
+
+// PointsTransactions table
+public class PointsTransactionEntity : ITableEntity
+{
+    public string PartitionKey { get; set; } = string.Empty;
+    public string RowKey { get; set; } = string.Empty;
+    public DateTimeOffset? Timestamp { get; set; }
+    public ETag ETag { get; set; }
+    
+    public string UserId { get; set; } = string.Empty;
+    public int Points { get; set; }
+    public string Type { get; set; } = string.Empty; // earned, redeemed, admin_adjustment
+    public string Description { get; set; } = string.Empty;
+    public DateTime CreatedDate { get; set; }
 }

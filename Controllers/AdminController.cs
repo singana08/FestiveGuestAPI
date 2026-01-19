@@ -62,6 +62,7 @@ public class AdminController : ControllerBase
                     referralCode = user.ReferralCode,
                     referredBy = user.ReferredBy,
                     successfulReferrals = successfulReferrals,
+                    referralPoints = user.ReferralPoints,
                     subscriptionStatus = subscription?.SubscriptionStatus ?? "free",
                     paymentVerifiedTimestamp = subscription?.PaymentVerifiedTimestamp,
                     lastUpdated = subscription?.Timestamp?.DateTime

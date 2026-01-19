@@ -107,6 +107,10 @@ public class UserController : ControllerBase
             );
         }
 
+        // Get subscription status
+        var subscriptionRepository = HttpContext.RequestServices.GetService<ISubscriptionRepository>();
+        var subscription = await subscriptionRepository!.GetSubscriptionByUserIdAsync(user.RowKey);
+
         var userDto = new UserDto
         {
             UserId = user.RowKey,
@@ -122,7 +126,9 @@ public class UserController : ControllerBase
             CreatedDate = user.CreatedDate,
             ReferralCode = user.ReferralCode,
             HostingAreas = hostingAreas,
-            SuccessfulReferrals = successfulReferrals
+            SuccessfulReferrals = successfulReferrals,
+            ReferralPoints = user.ReferralPoints,
+            SubscriptionStatus = subscription?.SubscriptionStatus ?? "free"
         };
 
         return Ok(userDto);

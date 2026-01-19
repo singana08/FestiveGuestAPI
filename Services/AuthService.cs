@@ -23,13 +23,20 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IEmailService _emailService;
     private readonly ISubscriptionRepository _subscriptionRepository;
+    private readonly IReferralPointsService _referralPointsService;
     private readonly AppSecrets _secrets;
 
-    public AuthService(IUserRepository userRepository, IEmailService emailService, ISubscriptionRepository subscriptionRepository, AppSecrets secrets)
+    public AuthService(
+        IUserRepository userRepository, 
+        IEmailService emailService, 
+        ISubscriptionRepository subscriptionRepository,
+        IReferralPointsService referralPointsService,
+        AppSecrets secrets)
     {
         _userRepository = userRepository;
         _emailService = emailService;
         _subscriptionRepository = subscriptionRepository;
+        _referralPointsService = referralPointsService;
         _secrets = secrets;
     }
 
@@ -90,6 +97,16 @@ public class AuthService : IAuthService
             var createdUser = await _userRepository.CreateUserAsync(user);
 
             Console.WriteLine($"DEBUG: User entity ReferredBy after save: '{createdUser.ReferredBy}'");
+
+            // Award points to referrer if ReferredBy is provided
+            if (!string.IsNullOrEmpty(createdUser.ReferredBy))
+            {
+                var referrer = await _userRepository.GetUserByReferralCodeAsync(createdUser.ReferredBy);
+                if (referrer != null)
+                {
+                    await _referralPointsService.AwardPointsForReferralAsync(referrer.RowKey, createdUser.RowKey);
+                }
+            }
 
             // Send registration confirmation email
             try
@@ -350,7 +367,8 @@ public class AuthService : IAuthService
             ReferredBy = user.ReferredBy,
             HostingAreas = hostingAreas,
             SubscriptionStatus = subscription?.SubscriptionStatus ?? "free",
-            SuccessfulReferrals = successfulReferrals
+            SuccessfulReferrals = successfulReferrals,
+            ReferralPoints = user.ReferralPoints
         };
     }
 }

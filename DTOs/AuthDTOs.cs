@@ -88,6 +88,7 @@ public class UserDto
     public List<HostingAreaDto>? HostingAreas { get; set; }
     public string SubscriptionStatus { get; set; } = "free";
     public int SuccessfulReferrals { get; set; } = 0;
+    public int ReferralPoints { get; set; } = 0;
 }
 
 public class HostingAreaDto
