@@ -164,7 +164,7 @@ public class EmailService : IEmailService
 
     public async Task SendNewGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId)
     {
-        var appUrl = _secrets.AppBaseUrl;
+        var postsUrl = $"{_secrets.AppBaseUrl}/posts";
         var content = $@"
             <p>Hi <strong>{hostName}</strong>,</p>
             <p>A new guest is looking for a host in your area!</p>
@@ -173,7 +173,7 @@ public class EmailService : IEmailService
                 <p style=""margin: 5px 0 0 0;"">📍 {location} &bull; Posted by {guestName}</p>
             </div>
             <p style=""text-align: center;"">
-                <a href=""{appUrl}"" style=""background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"">Open Festive Guest</a>
+                <a href=""{postsUrl}"" style=""background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"">View Posts</a>
             </p>
             <p style=""font-size: 13px; color: #888;"">You received this because you host in {location}. Manage your notification preferences in the app settings.</p>
         ";
@@ -182,7 +182,7 @@ public class EmailService : IEmailService
 
     public async Task SendNewHostPostNotificationAsync(string guestEmail, string guestName, string hostName, string postTitle, string location, string postId)
     {
-        var appUrl = _secrets.AppBaseUrl;
+        var postsUrl = $"{_secrets.AppBaseUrl}/posts";
         var content = $@"
             <p>Hi <strong>{guestName}</strong>,</p>
             <p>A new host is available in your area!</p>
@@ -191,7 +191,7 @@ public class EmailService : IEmailService
                 <p style=""margin: 5px 0 0 0;"">📍 {location} &bull; Hosted by {hostName}</p>
             </div>
             <p style=""text-align: center;"">
-                <a href=""{appUrl}"" style=""background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"">Open Festive Guest</a>
+                <a href=""{postsUrl}"" style=""background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"">View Posts</a>
             </p>
             <p style=""font-size: 13px; color: #888;"">You received this because your location matches. Manage your notification preferences in the app settings.</p>
         ";
