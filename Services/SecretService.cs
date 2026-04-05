@@ -36,6 +36,9 @@ public class SecretService
         secrets.FromEmailAddress = (await _secretClient.GetSecretAsync("from-email")).Value.Value;
         secrets.AcsConnectionString = (await _secretClient.GetSecretAsync("acs-connection-string")).Value.Value;
 
+        try { secrets.AppBaseUrl = (await _secretClient.GetSecretAsync("app-base-url")).Value.Value; }
+        catch { secrets.AppBaseUrl = "https://festiveguest.com"; }
+
         return secrets;
     }
 }

@@ -42,6 +42,7 @@ public class UpdateUserRequest
     public string? Location { get; set; }
     public string? Bio { get; set; }
     public string? HostingAreas { get; set; }
+    public NotificationPreferencesDto? NotificationPreferences { get; set; }
 }
 
 public class ResetPasswordRequest
@@ -92,10 +93,17 @@ public class UserDto
     public string SubscriptionStatus { get; set; } = "free";
     public int SuccessfulReferrals { get; set; } = 0;
     public int ReferralPoints { get; set; } = 0;
+    public NotificationPreferencesDto NotificationPreferences { get; set; } = new();
 }
 
 public class HostingAreaDto
 {
     public string State { get; set; } = string.Empty;
     public List<string> Cities { get; set; } = new();
+}
+
+public class NotificationPreferencesDto
+{
+    public bool Email { get; set; } = true;
+    public bool Push { get; set; } = false;
 }

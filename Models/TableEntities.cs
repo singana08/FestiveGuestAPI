@@ -27,6 +27,7 @@ public class UserEntity : ITableEntity
     public string ReferredBy { get; set; } = string.Empty;
     public string HostingAreas { get; set; } = string.Empty; // JSON string for hosting areas
     public int ReferralPoints { get; set; } = 0;
+    public string NotificationPreferences { get; set; } = "{\"email\":true,\"push\":false}"; // JSON string
 }
 
 // OTPs table

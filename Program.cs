@@ -115,6 +115,7 @@ builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<IReferralPointsService, ReferralPointsService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<ISasTokenService, SasTokenService>();
 builder.Services.AddHostedService<FestiveGuestAPI.BackgroundServices.OTPCleanupService>();

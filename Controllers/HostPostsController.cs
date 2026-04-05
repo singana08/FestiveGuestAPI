@@ -13,10 +13,12 @@ namespace FestiveGuestAPI.Controllers
     public class HostPostsController : ControllerBase
     {
         private readonly IHostPostRepository _hostPostRepository;
+        private readonly INotificationService _notificationService;
 
-        public HostPostsController(IHostPostRepository hostPostRepository)
+        public HostPostsController(IHostPostRepository hostPostRepository, INotificationService notificationService)
         {
             _hostPostRepository = hostPostRepository;
+            _notificationService = notificationService;
         }
 
         [HttpPost]
@@ -60,6 +62,10 @@ namespace FestiveGuestAPI.Controllers
                 };
 
                 var createdPost = await _hostPostRepository.CreateAsync(post);
+
+                // Fire-and-forget: notify matching guests
+                _ = Task.Run(() => _notificationService.NotifyGuestsAboutHostPostAsync(createdPost));
+
                 return CreatedAtAction(nameof(GetPost), new { id = createdPost.RowKey }, createdPost);
             }
             catch (Exception ex)

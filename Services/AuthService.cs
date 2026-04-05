@@ -3,6 +3,7 @@ using FestiveGuestAPI.Models;
 using FestiveGuestAPI.Configuration;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
@@ -181,6 +182,9 @@ public class AuthService : IAuthService
         
         if (request.HostingAreas != null)
             user.HostingAreas = request.HostingAreas;
+
+        if (request.NotificationPreferences != null)
+            user.NotificationPreferences = JsonSerializer.Serialize(request.NotificationPreferences);
 
         var updatedUser = await _userRepository.UpdateUserAsync(user);
 
@@ -377,7 +381,23 @@ public class AuthService : IAuthService
             HostingAreas = hostingAreas,
             SubscriptionStatus = subscription?.SubscriptionStatus ?? "free",
             SuccessfulReferrals = successfulReferrals,
-            ReferralPoints = user.ReferralPoints
+            ReferralPoints = user.ReferralPoints,
+            NotificationPreferences = ParseNotificationPreferences(user.NotificationPreferences)
         };
+    }
+
+    private static NotificationPreferencesDto ParseNotificationPreferences(string json)
+    {
+        if (string.IsNullOrEmpty(json))
+            return new NotificationPreferencesDto { Email = true, Push = false };
+        try
+        {
+            return JsonSerializer.Deserialize<NotificationPreferencesDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                   ?? new NotificationPreferencesDto { Email = true, Push = false };
+        }
+        catch
+        {
+            return new NotificationPreferencesDto { Email = true, Push = false };
+        }
     }
 }

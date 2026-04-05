@@ -17,4 +17,5 @@ public class AppSecrets
     public string FromEmailAddress { get; set; } = string.Empty;
     public string AcsConnectionString { get; set; } = string.Empty;
     public string AcsEndpoint { get; set; } = string.Empty;
+    public string AppBaseUrl { get; set; } = string.Empty;
 }

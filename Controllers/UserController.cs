@@ -5,6 +5,7 @@ using FestiveGuestAPI.DTOs;
 using FestiveGuestAPI.Models;
 using Azure.Data.Tables;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace FestiveGuestAPI.Controllers;
 
@@ -128,7 +129,8 @@ public class UserController : ControllerBase
             HostingAreas = hostingAreas,
             SuccessfulReferrals = successfulReferrals,
             ReferralPoints = user.ReferralPoints,
-            SubscriptionStatus = subscription?.SubscriptionStatus ?? "free"
+            SubscriptionStatus = subscription?.SubscriptionStatus ?? "free",
+            NotificationPreferences = ParseNotificationPreferences(user.NotificationPreferences)
         };
 
         return Ok(userDto);
@@ -486,5 +488,20 @@ public class UserController : ControllerBase
             return phone;
         
         return $"{phone[..2]}{new string('*', phone.Length - 4)}{phone[^2..]}";
+    }
+
+    private static NotificationPreferencesDto ParseNotificationPreferences(string json)
+    {
+        if (string.IsNullOrEmpty(json))
+            return new NotificationPreferencesDto { Email = true, Push = false };
+        try
+        {
+            return JsonSerializer.Deserialize<NotificationPreferencesDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                   ?? new NotificationPreferencesDto { Email = true, Push = false };
+        }
+        catch
+        {
+            return new NotificationPreferencesDto { Email = true, Push = false };
+        }
     }
 }
