@@ -37,6 +37,9 @@ public class LoginRequest
 public class UpdateUserRequest
 {
     public string UserId { get; set; } = string.Empty;
+    public string? Name { get; set; }
+    public string? Phone { get; set; }
+    public string? Location { get; set; }
     public string? Bio { get; set; }
     public string? HostingAreas { get; set; }
 }

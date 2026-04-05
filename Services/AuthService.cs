@@ -167,6 +167,15 @@ public class AuthService : IAuthService
             return new AuthResponse { Success = false, Message = "User not found." };
         }
 
+        if (!string.IsNullOrEmpty(request.Name))
+            user.Name = request.Name;
+
+        if (!string.IsNullOrEmpty(request.Phone))
+            user.Phone = request.Phone;
+
+        if (!string.IsNullOrEmpty(request.Location))
+            user.Location = request.Location;
+
         if (!string.IsNullOrEmpty(request.Bio))
             user.Bio = request.Bio;
         
