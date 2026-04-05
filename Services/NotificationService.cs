@@ -6,8 +6,8 @@ namespace FestiveGuestAPI.Services;
 
 public interface INotificationService
 {
-    Task NotifyHostsAboutGuestPostAsync(GuestPostEntity post);
-    Task NotifyGuestsAboutHostPostAsync(HostPostEntity post);
+    Task NotifyHostsAboutGuestPostAsync(GuestPostEntity post, bool isUpdate = false);
+    Task NotifyGuestsAboutHostPostAsync(HostPostEntity post, bool isUpdate = false);
 }
 
 public class NotificationService : INotificationService
@@ -24,7 +24,7 @@ public class NotificationService : INotificationService
         _logger = logger;
     }
 
-    public async Task NotifyHostsAboutGuestPostAsync(GuestPostEntity post)
+    public async Task NotifyHostsAboutGuestPostAsync(GuestPostEntity post, bool isUpdate = false)
     {
         try
         {
@@ -38,8 +38,8 @@ public class NotificationService : INotificationService
 
                 try
                 {
-                    await _emailService.SendNewGuestPostNotificationAsync(
-                        host.Email, host.Name, post.UserName, post.Title, post.Location, post.RowKey);
+                    await _emailService.SendGuestPostNotificationAsync(
+                        host.Email, host.Name, post.UserName, post.Title, post.Location, post.RowKey, isUpdate);
                 }
                 catch (Exception ex)
                 {
@@ -53,7 +53,7 @@ public class NotificationService : INotificationService
         }
     }
 
-    public async Task NotifyGuestsAboutHostPostAsync(HostPostEntity post)
+    public async Task NotifyGuestsAboutHostPostAsync(HostPostEntity post, bool isUpdate = false)
     {
         try
         {
@@ -71,8 +71,8 @@ public class NotificationService : INotificationService
                 {
                     try
                     {
-                        await _emailService.SendNewHostPostNotificationAsync(
-                            guest.Email, guest.Name, post.UserName, post.Title, post.Location, post.RowKey);
+                        await _emailService.SendHostPostNotificationAsync(
+                            guest.Email, guest.Name, post.UserName, post.Title, post.Location, post.RowKey, isUpdate);
                     }
                     catch (Exception ex)
                     {

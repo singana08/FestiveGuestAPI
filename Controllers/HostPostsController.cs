@@ -198,6 +198,10 @@ namespace FestiveGuestAPI.Controllers
                 post.UpdatedAt = DateTime.UtcNow;
 
                 var updated = await _hostPostRepository.UpdateAsync(post);
+
+                // Fire-and-forget: notify matching guests about update
+                _ = Task.Run(() => _notificationService.NotifyGuestsAboutHostPostAsync(updated, isUpdate: true));
+
                 return Ok(updated);
             }
             catch (Exception ex)

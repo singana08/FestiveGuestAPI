@@ -13,8 +13,8 @@ public interface IEmailService
     Task<EmailResponse> SendForgotPasswordOTPAsync(string email);
     Task<EmailResponse> ValidateOTPAsync(ValidateOTPRequest request);
     Task SendRegistrationConfirmationAsync(string email, string name);
-    Task SendNewGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId);
-    Task SendNewHostPostNotificationAsync(string guestEmail, string guestName, string hostName, string postTitle, string location, string postId);
+    Task SendGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId, bool isUpdate = false);
+    Task SendHostPostNotificationAsync(string guestEmail, string guestName, string hostName, string postTitle, string location, string postId, bool isUpdate = false);
 }
 
 public class EmailService : IEmailService
@@ -162,14 +162,20 @@ public class EmailService : IEmailService
         await SendEmailAsync(email, "Welcome to Festive Guest!", htmlBody);
     }
 
-    public async Task SendNewGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId)
+    public async Task SendGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId, bool isUpdate = false)
     {
         var postsUrl = $"{_secrets.AppBaseUrl}/posts";
+        var label = isUpdate ? "updated their" : "new";
+        var emoji = isUpdate ? "✏️" : "🏠";
+        var heading = isUpdate ? "Guest Post Updated in Your Area!" : "New Guest in Your Area!";
+        var subject = isUpdate
+            ? $"Guest Post Updated in {location} - Festive Guest"
+            : $"New Guest Looking for Host in {location} - Festive Guest";
         var content = $@"
             <p>Hi <strong>{hostName}</strong>,</p>
-            <p>A new guest is looking for a host in your area!</p>
+            <p>A guest has {label} post looking for a host in your area!</p>
             <div class=""welcome-box"">
-                <h3 style=""margin: 0;"">🏠 {postTitle}</h3>
+                <h3 style=""margin: 0;"">{emoji} {postTitle}</h3>
                 <p style=""margin: 5px 0 0 0;"">📍 {location} &bull; Posted by {guestName}</p>
             </div>
             <p style=""text-align: center;"">
@@ -177,17 +183,23 @@ public class EmailService : IEmailService
             </p>
             <p style=""font-size: 13px; color: #888;"">You received this because you host in {location}. Manage your notification preferences in the app settings.</p>
         ";
-        await SendEmailAsync(hostEmail, $"New Guest Looking for Host in {location} - Festive Guest", CreateEmailTemplate("New Guest in Your Area!", content));
+        await SendEmailAsync(hostEmail, subject, CreateEmailTemplate(heading, content));
     }
 
-    public async Task SendNewHostPostNotificationAsync(string guestEmail, string guestName, string hostName, string postTitle, string location, string postId)
+    public async Task SendHostPostNotificationAsync(string guestEmail, string guestName, string hostName, string postTitle, string location, string postId, bool isUpdate = false)
     {
         var postsUrl = $"{_secrets.AppBaseUrl}/posts";
+        var label = isUpdate ? "updated their" : "new";
+        var emoji = isUpdate ? "✏️" : "🎉";
+        var heading = isUpdate ? "Host Post Updated in Your Area!" : "New Host in Your Area!";
+        var subject = isUpdate
+            ? $"Host Post Updated in {location} - Festive Guest"
+            : $"New Host Available in {location} - Festive Guest";
         var content = $@"
             <p>Hi <strong>{guestName}</strong>,</p>
-            <p>A new host is available in your area!</p>
+            <p>A host has {label} post in your area!</p>
             <div class=""welcome-box"">
-                <h3 style=""margin: 0;"">🎉 {postTitle}</h3>
+                <h3 style=""margin: 0;"">{emoji} {postTitle}</h3>
                 <p style=""margin: 5px 0 0 0;"">📍 {location} &bull; Hosted by {hostName}</p>
             </div>
             <p style=""text-align: center;"">
@@ -195,7 +207,7 @@ public class EmailService : IEmailService
             </p>
             <p style=""font-size: 13px; color: #888;"">You received this because your location matches. Manage your notification preferences in the app settings.</p>
         ";
-        await SendEmailAsync(guestEmail, $"New Host Available in {location} - Festive Guest", CreateEmailTemplate("New Host in Your Area!", content));
+        await SendEmailAsync(guestEmail, subject, CreateEmailTemplate(heading, content));
     }
 
     private async Task SendEmailAsync(string toEmail, string subject, string body)
