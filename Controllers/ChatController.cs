@@ -208,6 +208,38 @@ public class ChatController : ControllerBase
         }
     }
 
+    [HttpPost("mark-read-all/{otherUserId}")]
+    public async Task<IActionResult> MarkAllRead(string otherUserId)
+    {
+        var userId = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        try
+        {
+            var messagesTable = _tableServiceClient.GetTableClient("ChatMessages");
+            await messagesTable.CreateIfNotExistsAsync();
+
+            var sortedIds = new[] { userId, otherUserId }.OrderBy(x => x).ToArray();
+            var chatRoom = $"chat_{sortedIds[0]}_{sortedIds[1]}";
+
+            var markedCount = 0;
+            await foreach (var msg in messagesTable.QueryAsync<ChatMessageEntity>(
+                filter: $"PartitionKey eq '{chatRoom}' and SenderId eq '{otherUserId}' and Status ne 'Read'"))
+            {
+                msg.Status = "Read";
+                msg.ReadAt = DateTime.UtcNow;
+                await messagesTable.UpdateEntityAsync(msg, msg.ETag);
+                markedCount++;
+            }
+
+            return Ok(new { success = true, markedCount });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
+
     [HttpGet("conversations")]
     public async Task<IActionResult> GetConversations()
     {
