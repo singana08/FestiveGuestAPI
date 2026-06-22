@@ -26,6 +26,7 @@ public class SubscriptionController : ControllerBase
     }
 
     [HttpGet("{userId}")]
+    [Authorize]
     public async Task<IActionResult> GetSubscription(string userId)
     {
         try

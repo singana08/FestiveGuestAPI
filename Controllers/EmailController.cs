@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using FestiveGuestAPI.DTOs;
 using FestiveGuestAPI.Services;
 
@@ -16,6 +17,7 @@ public class EmailController : ControllerBase
     }
 
     [HttpPost("send-otp")]
+    [EnableRateLimiting("otp")]
     public async Task<IActionResult> SendOTP([FromBody] SendOTPRequest request)
     {
         if (!ModelState.IsValid)

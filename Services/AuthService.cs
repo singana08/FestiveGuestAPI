@@ -4,6 +4,7 @@ using FestiveGuestAPI.Configuration;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using BC = BCrypt.Net.BCrypt;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
@@ -67,17 +68,12 @@ public class AuthService : IAuthService
             // Validate referral code if provided
             if (!string.IsNullOrWhiteSpace(request.ReferredBy))
             {
-                Console.WriteLine($"DEBUG: Validating referral code: {request.ReferredBy}");
                 var referrer = await _userRepository.GetUserByReferralCodeAsync(request.ReferredBy);
                 if (referrer == null)
                 {
-                    Console.WriteLine($"DEBUG: Invalid referral code: {request.ReferredBy}");
                     return new AuthResponse { Success = false, Message = "Invalid referral code." };
                 }
-                Console.WriteLine($"DEBUG: Valid referral code found for user: {referrer.Name}");
             }
-
-            Console.WriteLine($"DEBUG: Creating user with ReferredBy: '{request.ReferredBy}'");
 
             // Create user entity
             var user = new UserEntity
@@ -96,8 +92,6 @@ public class AuthService : IAuthService
             Console.WriteLine($"DEBUG: User entity ReferredBy before save: '{user.ReferredBy}'");
 
             var createdUser = await _userRepository.CreateUserAsync(user);
-
-            Console.WriteLine($"DEBUG: User entity ReferredBy after save: '{createdUser.ReferredBy}'");
 
             // Award points to referrer if ReferredBy is provided
             if (!string.IsNullOrEmpty(createdUser.ReferredBy))
@@ -141,9 +135,17 @@ public class AuthService : IAuthService
             return new AuthResponse { Success = false, Message = "Invalid email or password." };
         }
 
+        bool isLegacyHash = !user.Password.StartsWith("$2");
         if (!VerifyPassword(request.Password, user.Password))
         {
             return new AuthResponse { Success = false, Message = "Invalid email or password." };
+        }
+
+        // Migrate legacy SHA256 hash to bcrypt on successful login
+        if (isLegacyHash)
+        {
+            user.Password = HashPassword(request.Password);
+            await _userRepository.UpdateUserAsync(user);
         }
 
         if (user.Status != "Active")
@@ -267,16 +269,17 @@ public class AuthService : IAuthService
         }
     }
 
-    private string HashPassword(string password)
-    {
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password + "FestiveGuest2024"));
-        return Convert.ToBase64String(hashedBytes);
-    }
+    private string HashPassword(string password) =>
+        BC.HashPassword(password, workFactor: 12);
 
-    private bool VerifyPassword(string password, string hashedPassword)
+    private bool VerifyPassword(string password, string storedHash)
     {
-        return HashPassword(password) == hashedPassword;
+        if (storedHash.StartsWith("$2"))
+            return BC.Verify(password, storedHash);
+        // Legacy SHA256 path — rehash on next login
+        using var sha256 = SHA256.Create();
+        var legacyHash = Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(password + "FestiveGuest2024")));
+        return legacyHash == storedHash;
     }
 
     private bool IsValidPhone(string phone)
@@ -330,23 +333,15 @@ public class AuthService : IAuthService
         {
             try
             {
-                Console.WriteLine($"DEBUG: Raw HostingAreas from DB: {user.HostingAreas}");
                 var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas, options);
-                Console.WriteLine($"DEBUG: Parsed HostingAreas count: {hostingAreas?.Count}");
-                // Filter out empty entries
                 hostingAreas = hostingAreas?.Where(h => !string.IsNullOrEmpty(h.State) || h.Cities.Any()).ToList();
-                Console.WriteLine($"DEBUG: Filtered HostingAreas count: {hostingAreas?.Count}");
                 if (hostingAreas?.Count == 0) hostingAreas = null;
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"DEBUG: Error parsing HostingAreas: {ex.Message}");
+                // Suppress parse errors — return null hosting areas
             }
-        }
-        else
-        {
-            Console.WriteLine("DEBUG: HostingAreas is empty or null in DB");
         }
 
         var subscription = _subscriptionRepository.GetSubscriptionByUserIdAsync(user.RowKey).Result;

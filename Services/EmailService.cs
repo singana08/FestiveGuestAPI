@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using System.Security.Cryptography;
 using FestiveGuestAPI.Configuration;
 using FestiveGuestAPI.DTOs;
 using FestiveGuestAPI.Models;
@@ -32,7 +33,7 @@ public class EmailService : IEmailService
     {
         try
         {
-            var otpCode = new Random().Next(100000, 999999).ToString();
+            var otpCode = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
             var expirationTime = DateTime.UtcNow.AddMinutes(10);
 
             var otpEntity = new OTPEntity
@@ -82,7 +83,7 @@ public class EmailService : IEmailService
     {
         try
         {
-            var otpCode = new Random().Next(100000, 999999).ToString();
+            var otpCode = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
             var expirationTime = DateTime.UtcNow.AddMinutes(10);
 
             var otpEntity = new OTPEntity
@@ -110,7 +111,7 @@ public class EmailService : IEmailService
     {
         try
         {
-            var otpCode = new Random().Next(100000, 999999).ToString();
+            var otpCode = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
             var expirationTime = DateTime.UtcNow.AddMinutes(10);
 
             var otpEntity = new OTPEntity

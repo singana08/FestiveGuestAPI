@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using FestiveGuestAPI.DTOs;
 using FestiveGuestAPI.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -38,6 +39,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         if (!ModelState.IsValid)
@@ -56,11 +58,18 @@ public class AuthController : ControllerBase
     }
 
     [HttpPut("update")]
+    [Authorize]
     public async Task<IActionResult> UpdateUser([FromBody] UpdateUserRequest request)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+
+        var tokenUserId = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(tokenUserId) || tokenUserId != request.UserId)
+        {
+            return Forbid();
         }
 
         var result = await _authService.UpdateUserAsync(request);

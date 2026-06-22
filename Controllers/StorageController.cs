@@ -16,7 +16,7 @@ public class StorageController : ControllerBase
     }
 
     [HttpGet("get-sas-url/{fileName}")]
-    [AllowAnonymous]
+    [Authorize]
     public IActionResult GetSasUrl(string fileName)
     {
         try
@@ -31,7 +31,7 @@ public class StorageController : ControllerBase
     }
 
     [HttpGet("get-sas-url")]
-    [AllowAnonymous]
+    [Authorize]
     public IActionResult GetSasUrlFromQuery([FromQuery] string fileName, [FromQuery] string container = "logos")
     {
         try
