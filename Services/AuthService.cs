@@ -202,13 +202,15 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<AuthResponse> GoogleLoginAsync(string idToken)
+    public async Task<AuthResponse> GoogleLoginAsync(string accessToken)
     {
         try
         {
-            // Verify the Google ID token via Google's tokeninfo endpoint
+            // Fetch user profile from Google using the access token
             using var http = _httpClientFactory.CreateClient();
-            var response = await http.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={Uri.EscapeDataString(idToken)}");
+            http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            var response = await http.GetAsync("https://www.googleapis.com/oauth2/v3/userinfo");
 
             if (!response.IsSuccessStatusCode)
                 return new AuthResponse { Success = false, Message = "Invalid Google token." };

@@ -26,3 +26,15 @@ public class EmailResponse
     public string Message { get; set; } = string.Empty;
     public DateTime? ExpirationTime { get; set; }
 }
+
+public class SendInvitationsRequest
+{
+    [Required]
+    public List<string> Emails { get; set; } = new();
+
+    [Required]
+    public string InviterName { get; set; } = string.Empty;
+
+    [Required]
+    public string ReferralCode { get; set; } = string.Empty;
+}

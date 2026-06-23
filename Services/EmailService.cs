@@ -16,6 +16,7 @@ public interface IEmailService
     Task SendRegistrationConfirmationAsync(string email, string name);
     Task SendGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId, bool isUpdate = false);
     Task SendHostPostNotificationAsync(string guestEmail, string guestName, string hostName, string postTitle, string location, string postId, bool isUpdate = false);
+    Task<EmailResponse> SendInvitationsAsync(SendInvitationsRequest request);
 }
 
 public class EmailService : IEmailService
@@ -209,6 +210,46 @@ public class EmailService : IEmailService
             <p style=""font-size: 13px; color: #888;"">You received this because your location matches. Manage your notification preferences in the app settings.</p>
         ";
         await SendEmailAsync(guestEmail, subject, CreateEmailTemplate(heading, content));
+    }
+
+    public async Task<EmailResponse> SendInvitationsAsync(SendInvitationsRequest request)
+    {
+        var sent = 0;
+        var failed = 0;
+        var registerUrl = $"{_secrets.AppBaseUrl}/?register=true&ref={request.ReferralCode}";
+
+        foreach (var email in request.Emails.Distinct())
+        {
+            try
+            {
+                var content = $@"
+                    <p>Hi there!</p>
+                    <p><strong>{request.InviterName}</strong> has invited you to join <strong>Festive Guest</strong> — India's platform for meaningful stays during festivals, business trips, and life events.</p>
+                    <div class=""welcome-box"">
+                        🎉 Connect with verified local hosts across 20+ states
+                    </div>
+                    <p>Use their personal referral link to sign up — it's completely free!</p>
+                    <p style=""text-align: center;"">
+                        <a href=""{registerUrl}"" style=""background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); color: white; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;"">Join Festive Guest</a>
+                    </p>
+                    <p style=""font-size: 13px; color: #888;"">Referral code: <strong>{request.ReferralCode}</strong></p>
+                ";
+                await SendEmailAsync(email, $"{request.InviterName} invited you to Festive Guest!", CreateEmailTemplate("You're Invited! 🎉", content));
+                sent++;
+            }
+            catch
+            {
+                failed++;
+            }
+        }
+
+        return new EmailResponse
+        {
+            Success = sent > 0,
+            Message = failed == 0
+                ? $"Invitations sent to {sent} contacts"
+                : $"Sent {sent}, failed {failed}"
+        };
     }
 
     private async Task SendEmailAsync(string toEmail, string subject, string body)

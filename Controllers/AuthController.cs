@@ -89,7 +89,7 @@ public class AuthController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _authService.GoogleLoginAsync(request.IdToken);
+        var result = await _authService.GoogleLoginAsync(request.AccessToken);
 
         if (!result.Success)
             return BadRequest(result);
