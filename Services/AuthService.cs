@@ -15,6 +15,7 @@ public interface IAuthService
 {
     Task<AuthResponse> RegisterAsync(RegisterRequest request);
     Task<AuthResponse> LoginAsync(LoginRequest request);
+    Task<AuthResponse> GoogleLoginAsync(string idToken);
     Task<AuthResponse> UpdateUserAsync(UpdateUserRequest request);
     Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request);
     Task<AuthResponse> ChangePasswordAsync(ChangePasswordRequest request, string userId);
@@ -27,19 +28,22 @@ public class AuthService : IAuthService
     private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly IReferralPointsService _referralPointsService;
     private readonly AppSecrets _secrets;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public AuthService(
-        IUserRepository userRepository, 
-        IEmailService emailService, 
+        IUserRepository userRepository,
+        IEmailService emailService,
         ISubscriptionRepository subscriptionRepository,
         IReferralPointsService referralPointsService,
-        AppSecrets secrets)
+        AppSecrets secrets,
+        IHttpClientFactory httpClientFactory)
     {
         _userRepository = userRepository;
         _emailService = emailService;
         _subscriptionRepository = subscriptionRepository;
         _referralPointsService = referralPointsService;
         _secrets = secrets;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -196,6 +200,77 @@ public class AuthService : IAuthService
             Message = "User updated successfully.",
             User = MapToUserDto(updatedUser)
         };
+    }
+
+    public async Task<AuthResponse> GoogleLoginAsync(string idToken)
+    {
+        try
+        {
+            // Verify the Google ID token via Google's tokeninfo endpoint
+            using var http = _httpClientFactory.CreateClient();
+            var response = await http.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={Uri.EscapeDataString(idToken)}");
+
+            if (!response.IsSuccessStatusCode)
+                return new AuthResponse { Success = false, Message = "Invalid Google token." };
+
+            var content = await response.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(content);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("email", out var emailProp))
+                return new AuthResponse { Success = false, Message = "Could not read Google profile." };
+
+            var email = emailProp.GetString()!.ToLower();
+            var name = root.TryGetProperty("name", out var nameProp) ? (nameProp.GetString() ?? email) : email;
+
+            // Existing user → log in
+            var existing = await _userRepository.GetUserByEmailAsync(email);
+            if (existing != null)
+            {
+                if (existing.Status != "Active")
+                    return new AuthResponse { Success = false, Message = "Account is not active." };
+
+                return new AuthResponse
+                {
+                    Success = true,
+                    Message = "Login successful.",
+                    User = MapToUserDto(existing),
+                    Token = GenerateToken(existing.RowKey, existing.Name, existing.Email, existing.UserType)
+                };
+            }
+
+            // New user → create minimal account
+            var newUser = new FestiveGuestAPI.Models.UserEntity
+            {
+                Name = name,
+                Email = email,
+                Phone = "9999999999", // placeholder — user updates from profile
+                Password = BC.HashPassword(Guid.NewGuid().ToString(), workFactor: 12),
+                UserType = "Guest",
+                Location = string.Empty,
+                Bio = string.Empty,
+                ReferredBy = string.Empty,
+                HostingAreas = string.Empty
+            };
+
+            var created = await _userRepository.CreateUserAsync(newUser);
+
+            try { await _emailService.SendRegistrationConfirmationAsync(created.Email, created.Name); }
+            catch { /* Email failure should not block sign-up */ }
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Google sign-up successful.",
+                User = MapToUserDto(created),
+                Token = GenerateToken(created.RowKey, created.Name, created.Email, created.UserType),
+                IsNewGoogleUser = true
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponse { Success = false, Message = $"Google login failed: {ex.Message}" };
+        }
     }
 
     public async Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request)

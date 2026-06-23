@@ -40,6 +40,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
 
 // CORS — locked to configured origins only
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()

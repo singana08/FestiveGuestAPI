@@ -66,12 +66,19 @@ public class ChangePasswordRequest
     public string NewPassword { get; set; } = string.Empty;
 }
 
+public class GoogleLoginRequest
+{
+    [Required]
+    public string IdToken { get; set; } = string.Empty;
+}
+
 public class AuthResponse
 {
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
     public UserDto? User { get; set; }
     public string? Token { get; set; }
+    public bool IsNewGoogleUser { get; set; }
 }
 
 public class UserDto
