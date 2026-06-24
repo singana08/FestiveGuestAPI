@@ -15,7 +15,8 @@ public interface IAuthService
 {
     Task<AuthResponse> RegisterAsync(RegisterRequest request);
     Task<AuthResponse> LoginAsync(LoginRequest request);
-    Task<AuthResponse> GoogleLoginAsync(string idToken);
+    Task<AuthResponse> GoogleLoginAsync(string accessToken);
+    Task<GoogleVerifyResponse> GoogleVerifyAsync(string accessToken);
     Task<AuthResponse> UpdateUserAsync(UpdateUserRequest request);
     Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request);
     Task<AuthResponse> ChangePasswordAsync(ChangePasswordRequest request, string userId);
@@ -202,77 +203,72 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<AuthResponse> GoogleLoginAsync(string accessToken)
+    public async Task<AuthResponse> GoogleLoginAsync(string idToken)
     {
         try
         {
-            // Fetch user profile from Google using the access token
-            using var http = _httpClientFactory.CreateClient();
-            http.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-            var response = await http.GetAsync("https://www.googleapis.com/oauth2/v3/userinfo");
-
-            if (!response.IsSuccessStatusCode)
+            var profile = await FetchGoogleProfileAsync(idToken);
+            if (profile == null)
                 return new AuthResponse { Success = false, Message = "Invalid Google token." };
 
-            var content = await response.Content.ReadAsStringAsync();
-            using var doc = System.Text.Json.JsonDocument.Parse(content);
-            var root = doc.RootElement;
+            var existing = await _userRepository.GetUserByEmailAsync(profile.Value.Email);
+            if (existing == null)
+                return new AuthResponse { Success = false, Message = "No account found with this Google account. Please register first." };
 
-            if (!root.TryGetProperty("email", out var emailProp))
-                return new AuthResponse { Success = false, Message = "Could not read Google profile." };
-
-            var email = emailProp.GetString()!.ToLower();
-            var name = root.TryGetProperty("name", out var nameProp) ? (nameProp.GetString() ?? email) : email;
-
-            // Existing user → log in
-            var existing = await _userRepository.GetUserByEmailAsync(email);
-            if (existing != null)
-            {
-                if (existing.Status != "Active")
-                    return new AuthResponse { Success = false, Message = "Account is not active." };
-
-                return new AuthResponse
-                {
-                    Success = true,
-                    Message = "Login successful.",
-                    User = MapToUserDto(existing),
-                    Token = GenerateToken(existing.RowKey, existing.Name, existing.Email, existing.UserType)
-                };
-            }
-
-            // New user → create minimal account
-            var newUser = new FestiveGuestAPI.Models.UserEntity
-            {
-                Name = name,
-                Email = email,
-                Phone = "9999999999", // placeholder — user updates from profile
-                Password = BC.HashPassword(Guid.NewGuid().ToString(), workFactor: 12),
-                UserType = "Guest",
-                Location = string.Empty,
-                Bio = string.Empty,
-                ReferredBy = string.Empty,
-                HostingAreas = string.Empty
-            };
-
-            var created = await _userRepository.CreateUserAsync(newUser);
-
-            try { await _emailService.SendRegistrationConfirmationAsync(created.Email, created.Name); }
-            catch { /* Email failure should not block sign-up */ }
+            if (existing.Status != "Active")
+                return new AuthResponse { Success = false, Message = "Account is not active." };
 
             return new AuthResponse
             {
                 Success = true,
-                Message = "Google sign-up successful.",
-                User = MapToUserDto(created),
-                Token = GenerateToken(created.RowKey, created.Name, created.Email, created.UserType),
-                IsNewGoogleUser = true
+                Message = "Login successful.",
+                User = MapToUserDto(existing),
+                Token = GenerateToken(existing.RowKey, existing.Name, existing.Email, existing.UserType)
             };
         }
         catch (Exception ex)
         {
             return new AuthResponse { Success = false, Message = $"Google login failed: {ex.Message}" };
         }
+    }
+
+    public async Task<GoogleVerifyResponse> GoogleVerifyAsync(string idToken)
+    {
+        try
+        {
+            var profile = await FetchGoogleProfileAsync(idToken);
+            if (profile == null)
+                return new GoogleVerifyResponse { Success = false, Message = "Invalid Google token." };
+
+            return new GoogleVerifyResponse
+            {
+                Success = true,
+                Email = profile.Value.Email,
+                Name = profile.Value.Name
+            };
+        }
+        catch (Exception ex)
+        {
+            return new GoogleVerifyResponse { Success = false, Message = $"Google verification failed: {ex.Message}" };
+        }
+    }
+
+    private async Task<(string Email, string Name)?> FetchGoogleProfileAsync(string idToken)
+    {
+        using var http = _httpClientFactory.CreateClient();
+        // OpenID Connect: tokeninfo verifies the JWT signature and returns identity claims
+        var response = await http.GetAsync(
+            $"https://oauth2.googleapis.com/tokeninfo?id_token={Uri.EscapeDataString(idToken)}");
+        if (!response.IsSuccessStatusCode) return null;
+
+        var content = await response.Content.ReadAsStringAsync();
+        using var doc = System.Text.Json.JsonDocument.Parse(content);
+        var root = doc.RootElement;
+
+        if (!root.TryGetProperty("email", out var emailProp)) return null;
+        var email = emailProp.GetString()!.ToLower();
+        var name = root.TryGetProperty("name", out var nameProp) ? (nameProp.GetString() ?? email) : email;
+        return (email, name);
     }
 
     public async Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request)

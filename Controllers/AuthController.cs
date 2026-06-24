@@ -89,7 +89,22 @@ public class AuthController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _authService.GoogleLoginAsync(request.AccessToken);
+        var result = await _authService.GoogleLoginAsync(request.IdToken);
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [HttpPost("google-verify")]
+    [EnableRateLimiting("login")]
+    public async Task<IActionResult> GoogleVerify([FromBody] GoogleLoginRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _authService.GoogleVerifyAsync(request.IdToken);
 
         if (!result.Success)
             return BadRequest(result);

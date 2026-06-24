@@ -69,7 +69,15 @@ public class ChangePasswordRequest
 public class GoogleLoginRequest
 {
     [Required]
-    public string AccessToken { get; set; } = string.Empty;
+    public string IdToken { get; set; } = string.Empty;
+}
+
+public class GoogleVerifyResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 }
 
 public class AuthResponse
