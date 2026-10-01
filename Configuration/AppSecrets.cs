@@ -18,4 +18,5 @@ public class AppSecrets
     public string AcsConnectionString { get; set; } = string.Empty;
     public string AcsEndpoint { get; set; } = string.Empty;
     public string AppBaseUrl { get; set; } = string.Empty;
+    public string TwoFactorApiKey { get; set; } = string.Empty;
 }

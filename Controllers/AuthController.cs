@@ -121,10 +121,47 @@ public class AuthController : ControllerBase
         }
 
         var result = await _authService.ResetPasswordAsync(request);
-        
+
         if (!result.Success)
         {
             return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("reset-password-phone")]
+    public async Task<IActionResult> ResetPasswordWithPhone([FromBody] ResetPasswordPhoneRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var result = await _authService.ResetPasswordWithPhoneAsync(request);
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("login-with-phone")]
+    [EnableRateLimiting("login")]
+    public async Task<IActionResult> LoginWithPhone([FromBody] PhoneLoginRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var result = await _authService.LoginWithPhoneAsync(request);
+
+        if (!result.Success)
+        {
+            return Unauthorized(result);
         }
 
         return Ok(result);

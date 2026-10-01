@@ -39,6 +39,10 @@ public class SecretService
         try { secrets.AppBaseUrl = (await _secretClient.GetSecretAsync("app-base-url")).Value.Value; }
         catch { secrets.AppBaseUrl = "https://festiveguest.com"; }
 
+        // Not in Key Vault yet — phone OTP stays disabled (SmsOtpService no-ops) until it's added
+        try { secrets.TwoFactorApiKey = (await _secretClient.GetSecretAsync("twofactor-api-key")).Value.Value; }
+        catch { secrets.TwoFactorApiKey = string.Empty; }
+
         return secrets;
     }
 }

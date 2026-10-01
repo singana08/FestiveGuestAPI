@@ -19,7 +19,9 @@ public interface IAuthService
     Task<GoogleVerifyResponse> GoogleVerifyAsync(string accessToken);
     Task<AuthResponse> UpdateUserAsync(UpdateUserRequest request);
     Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request);
+    Task<AuthResponse> ResetPasswordWithPhoneAsync(ResetPasswordPhoneRequest request);
     Task<AuthResponse> ChangePasswordAsync(ChangePasswordRequest request, string userId);
+    Task<AuthResponse> LoginWithPhoneAsync(PhoneLoginRequest request);
 }
 
 public class AuthService : IAuthService
@@ -28,6 +30,7 @@ public class AuthService : IAuthService
     private readonly IEmailService _emailService;
     private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly IReferralPointsService _referralPointsService;
+    private readonly ISmsOtpService _smsOtpService;
     private readonly AppSecrets _secrets;
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -36,6 +39,7 @@ public class AuthService : IAuthService
         IEmailService emailService,
         ISubscriptionRepository subscriptionRepository,
         IReferralPointsService referralPointsService,
+        ISmsOtpService smsOtpService,
         AppSecrets secrets,
         IHttpClientFactory httpClientFactory)
     {
@@ -43,6 +47,7 @@ public class AuthService : IAuthService
         _emailService = emailService;
         _subscriptionRepository = subscriptionRepository;
         _referralPointsService = referralPointsService;
+        _smsOtpService = smsOtpService;
         _secrets = secrets;
         _httpClientFactory = httpClientFactory;
     }
@@ -80,6 +85,19 @@ public class AuthService : IAuthService
                 }
             }
 
+            // Phone OTP verification is only enforced once TwoFactorApiKey is configured in Key Vault —
+            // until then every registration stays auto-verified, matching current production behavior.
+            bool phoneVerified = !_smsOtpService.IsConfigured;
+            if (_smsOtpService.IsConfigured)
+            {
+                var verified = _smsOtpService.ValidateVerificationToken(request.PhoneVerificationToken, request.Phone, "register");
+                if (verified == null)
+                {
+                    return new AuthResponse { Success = false, Message = "Please verify your phone number with the OTP sent via SMS." };
+                }
+                phoneVerified = true;
+            }
+
             // Create user entity
             var user = new UserEntity
             {
@@ -91,7 +109,8 @@ public class AuthService : IAuthService
                 Location = request.Location,
                 Bio = request.Bio,
                 ReferredBy = request.ReferredBy ?? string.Empty,
-                HostingAreas = request.HostingAreas ?? string.Empty
+                HostingAreas = request.HostingAreas ?? string.Empty,
+                IsVerified = phoneVerified
             };
 
             Console.WriteLine($"DEBUG: User entity ReferredBy before save: '{user.ReferredBy}'");
@@ -151,6 +170,34 @@ public class AuthService : IAuthService
         {
             user.Password = HashPassword(request.Password);
             await _userRepository.UpdateUserAsync(user);
+        }
+
+        if (user.Status != "Active")
+        {
+            return new AuthResponse { Success = false, Message = "Account is not active." };
+        }
+
+        return new AuthResponse
+        {
+            Success = true,
+            Message = "Login successful.",
+            User = MapToUserDto(user),
+            Token = GenerateToken(user.RowKey, user.Name, user.Email, user.UserType)
+        };
+    }
+
+    public async Task<AuthResponse> LoginWithPhoneAsync(PhoneLoginRequest request)
+    {
+        var verified = _smsOtpService.ValidateVerificationToken(request.VerificationToken, request.Phone, "login");
+        if (verified == null)
+        {
+            return new AuthResponse { Success = false, Message = "Invalid or expired phone verification." };
+        }
+
+        var user = await _userRepository.GetUserByPhoneAsync(request.Phone);
+        if (user == null)
+        {
+            return new AuthResponse { Success = false, Message = "No account found with this phone number." };
         }
 
         if (user.Status != "Active")
@@ -295,6 +342,37 @@ public class AuthService : IAuthService
             }
 
             // Update password
+            user.Password = HashPassword(request.NewPassword);
+            await _userRepository.UpdateUserAsync(user);
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Password reset successfully."
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponse { Success = false, Message = $"Password reset failed: {ex.Message}" };
+        }
+    }
+
+    public async Task<AuthResponse> ResetPasswordWithPhoneAsync(ResetPasswordPhoneRequest request)
+    {
+        try
+        {
+            var verified = _smsOtpService.ValidateVerificationToken(request.VerificationToken, request.Phone, "reset");
+            if (verified == null)
+            {
+                return new AuthResponse { Success = false, Message = "Invalid or expired phone verification." };
+            }
+
+            var user = await _userRepository.GetUserByPhoneAsync(request.Phone);
+            if (user == null)
+            {
+                return new AuthResponse { Success = false, Message = "User not found." };
+            }
+
             user.Password = HashPassword(request.NewPassword);
             await _userRepository.UpdateUserAsync(user);
 

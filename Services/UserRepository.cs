@@ -44,6 +44,15 @@ public class UserRepository : IUserRepository
         return null;
     }
 
+    public async Task<UserEntity?> GetUserByPhoneAsync(string phone)
+    {
+        await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.Phone == phone))
+        {
+            return user;
+        }
+        return null;
+    }
+
     public async Task<UserEntity?> GetUserByNameAsync(string name)
     {
         await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.Name.ToLower() == name.ToLower()))
@@ -78,7 +87,6 @@ public class UserRepository : IUserRepository
         user.RowKey = Guid.NewGuid().ToString();
         user.CreatedDate = DateTime.UtcNow;
         user.Status = "Active";
-        user.IsVerified = true;
         user.ReferralCode = GenerateReferralCode(user.RowKey);
         
         await _tableClient.AddEntityAsync(user);

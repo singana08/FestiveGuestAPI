@@ -23,15 +23,28 @@ public class RegisterRequest
     public string Bio { get; set; } = string.Empty;
     public string? ReferredBy { get; set; }
     public string? HostingAreas { get; set; } // JSON string for hosting areas
+
+    // From POST api/phone-otp/verify (purpose=register). Only required once phone OTP is configured.
+    public string? PhoneVerificationToken { get; set; }
 }
 
 public class LoginRequest
 {
     [Required, EmailAddress]
     public string Email { get; set; } = string.Empty;
-    
+
     [Required]
     public string Password { get; set; } = string.Empty;
+}
+
+public class PhoneLoginRequest
+{
+    [Required, Phone]
+    public string Phone { get; set; } = string.Empty;
+
+    // From POST api/phone-otp/verify (purpose=login)
+    [Required]
+    public string VerificationToken { get; set; } = string.Empty;
 }
 
 public class UpdateUserRequest
@@ -53,6 +66,19 @@ public class ResetPasswordRequest
     [Required, StringLength(6, MinimumLength = 6)]
     public string OtpCode { get; set; } = string.Empty;
     
+    [Required, MinLength(6)]
+    public string NewPassword { get; set; } = string.Empty;
+}
+
+public class ResetPasswordPhoneRequest
+{
+    [Required, Phone]
+    public string Phone { get; set; } = string.Empty;
+
+    // From POST api/phone-otp/verify (purpose=reset)
+    [Required]
+    public string VerificationToken { get; set; } = string.Empty;
+
     [Required, MinLength(6)]
     public string NewPassword { get; set; } = string.Empty;
 }
