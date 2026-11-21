@@ -21,6 +21,68 @@ namespace FestiveGuestAPI.Controllers
             _notificationService = notificationService;
         }
 
+        // ── Guide requests (a local for a few hours) ──
+        private static readonly HashSet<string> NeedTypes = new() { "stay", "guide", "both" };
+        private static readonly HashSet<string> HelpTypes = new()
+        {
+            "hospital_visit", "govt_office", "exam_centre", "interview", "court", "university_admission",
+            "bank_paperwork", "translation", "form_filling", "city_orientation", "elderly_companion",
+        };
+
+        private static List<string> Clean(List<string>? items) =>
+            items?.Select(x => x?.Trim() ?? "").Where(x => x.Length > 0).Distinct().ToList() ?? new List<string>();
+
+        private static List<string> SplitCsv(string? csv) =>
+            string.IsNullOrEmpty(csv) ? new List<string>() : csv.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+        /// <summary>Returns an error message, or null when the guide details suit the need type.</summary>
+        private static string? ValidateGuide(string needType, List<string> helpWith, int? hours, List<string> languages, int? budgetPerHour)
+        {
+            if (!NeedTypes.Contains(needType)) return "needType must be 'stay', 'guide' or 'both'";
+            if (needType == "stay") return null;
+            if (helpWith.Count == 0) return "Pick at least one thing you need help with";
+            if (helpWith.Any(h => !HelpTypes.Contains(h))) return "Unknown help type";
+            if (hours is null or < 1 or > 12) return "Guide hours must be between 1 and 12";
+            if (languages.Count > 10 || languages.Any(l => l.Length > 30 || l.Contains(','))) return "Invalid languages";
+            if (budgetPerHour is < 0 or > 100000) return "Budget per hour must be between 0 and 100000";
+            return null;
+        }
+
+        private static void ApplyGuide(GuestPostEntity post, string needType, List<string> helpWith, int? hours, List<string> languages, int? budgetPerHour)
+        {
+            var guide = needType != "stay";
+            post.NeedType = needType;
+            post.GuideHelpWith = guide ? string.Join(",", helpWith) : "";
+            post.GuideHours = guide ? hours : null;
+            post.GuideLanguages = guide ? string.Join(",", languages) : "";
+            post.GuideBudgetPerHour = guide ? budgetPerHour : null;
+        }
+
+        // Shared response shape. The poster's email is deliberately left out —
+        // posts are visible to other members, and no client uses it.
+        private static object ToResponse(GuestPostEntity p) => new
+        {
+            rowKey = p.RowKey,
+            userId = p.UserId,
+            userName = p.UserName,
+            title = p.Title,
+            content = p.Content,
+            location = p.Location,
+            facilities = p.Facilities,
+            visitors = p.Visitors,
+            days = p.Days,
+            planningDate = p.VisitingDate,
+            visitingDate = p.VisitingDate,
+            status = p.Status,
+            createdAt = p.CreatedAt,
+            updatedAt = p.UpdatedAt,
+            needType = string.IsNullOrEmpty(p.NeedType) ? "stay" : p.NeedType,
+            guideHelpWith = p.GuideHelpWith,
+            guideHours = p.GuideHours,
+            guideLanguages = p.GuideLanguages,
+            guideBudgetPerHour = p.GuideBudgetPerHour
+        };
+
         [HttpPost]
         public async Task<IActionResult> CreatePost([FromBody] CreateGuestPostRequest request)
         {
@@ -42,6 +104,15 @@ namespace FestiveGuestAPI.Controllers
                     return BadRequest("Title, content, and location are required");
                 }
 
+                var needType = (request.NeedType ?? "stay").Trim().ToLowerInvariant();
+                var helpWith = Clean(request.GuideHelpWith);
+                var languages = Clean(request.GuideLanguages);
+                var guideError = ValidateGuide(needType, helpWith, request.GuideHours, languages, request.GuideBudgetPerHour);
+                if (guideError != null)
+                {
+                    return BadRequest(new { message = guideError });
+                }
+
                 var post = new GuestPostEntity
                 {
                     PartitionKey = "GuestPost",
@@ -60,6 +131,7 @@ namespace FestiveGuestAPI.Controllers
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
+                ApplyGuide(post, needType, helpWith, request.GuideHours, languages, request.GuideBudgetPerHour);
 
                 var createdPost = await _guestPostRepository.CreateAsync(post);
 
@@ -117,25 +189,7 @@ namespace FestiveGuestAPI.Controllers
                     catch { return Ok(new List<object>()); }
                 }
                 
-                var response = posts.Select(p => new
-                {
-                    rowKey = p.RowKey,
-                    userId = p.UserId,
-                    userName = p.UserName,
-                    userEmail = p.UserEmail,
-                    title = p.Title,
-                    content = p.Content,
-                    location = p.Location,
-                    facilities = p.Facilities,
-                    visitors = p.Visitors,
-                    days = p.Days,
-                    planningDate = p.VisitingDate,
-                    visitingDate = p.VisitingDate,
-                    status = p.Status,
-                    createdAt = p.CreatedAt,
-                    updatedAt = p.UpdatedAt
-                });
-                return Ok(response);
+                return Ok(posts.Select(ToResponse));
             }
             catch (Exception ex)
             {
@@ -153,25 +207,7 @@ namespace FestiveGuestAPI.Controllers
                 {
                     return NotFound("Post not found");
                 }
-                var response = new
-                {
-                    rowKey = post.RowKey,
-                    userId = post.UserId,
-                    userName = post.UserName,
-                    userEmail = post.UserEmail,
-                    title = post.Title,
-                    content = post.Content,
-                    location = post.Location,
-                    facilities = post.Facilities,
-                    visitors = post.Visitors,
-                    days = post.Days,
-                    planningDate = post.VisitingDate,
-                    visitingDate = post.VisitingDate,
-                    status = post.Status,
-                    createdAt = post.CreatedAt,
-                    updatedAt = post.UpdatedAt
-                };
-                return Ok(response);
+                return Ok(ToResponse(post));
             }
             catch (Exception ex)
             {
@@ -193,25 +229,7 @@ namespace FestiveGuestAPI.Controllers
                 var allPosts = await _guestPostRepository.GetAllActiveAsync();
                 var myPosts = allPosts.Where(p => p.UserId == userId).ToList();
 
-                var response = myPosts.Select(p => new
-                {
-                    rowKey = p.RowKey,
-                    userId = p.UserId,
-                    userName = p.UserName,
-                    userEmail = p.UserEmail,
-                    title = p.Title,
-                    content = p.Content,
-                    location = p.Location,
-                    facilities = p.Facilities,
-                    visitors = p.Visitors,
-                    days = p.Days,
-                    planningDate = p.VisitingDate,
-                    visitingDate = p.VisitingDate,
-                    status = p.Status,
-                    createdAt = p.CreatedAt,
-                    updatedAt = p.UpdatedAt
-                });
-                return Ok(response);
+                return Ok(myPosts.Select(ToResponse));
             }
             catch (Exception ex)
             {
@@ -274,6 +292,20 @@ namespace FestiveGuestAPI.Controllers
                 post.Visitors = request.Visitors ?? post.Visitors;
                 post.Days = request.Days ?? post.Days;
                 post.VisitingDate = request.PlanningDate ?? request.VisitingDate ?? post.VisitingDate;
+
+                // Clients that don't know about guide requests (no needType sent) keep what's stored.
+                var guideAware = request.NeedType != null;
+                var needType = guideAware ? request.NeedType!.Trim().ToLowerInvariant() : (string.IsNullOrEmpty(post.NeedType) ? "stay" : post.NeedType);
+                var helpWith = guideAware ? Clean(request.GuideHelpWith) : SplitCsv(post.GuideHelpWith);
+                var languages = guideAware ? Clean(request.GuideLanguages) : SplitCsv(post.GuideLanguages);
+                var hours = guideAware ? request.GuideHours : post.GuideHours;
+                var budget = guideAware ? request.GuideBudgetPerHour : post.GuideBudgetPerHour;
+                var guideError = ValidateGuide(needType, helpWith, hours, languages, budget);
+                if (guideError != null)
+                {
+                    return BadRequest(new { message = guideError });
+                }
+                ApplyGuide(post, needType, helpWith, hours, languages, budget);
                 post.UpdatedAt = DateTime.UtcNow;
 
                 var updated = await _guestPostRepository.UpdateAsync(post);
@@ -303,6 +335,11 @@ namespace FestiveGuestAPI.Controllers
         public int? Visitors { get; set; }
         public int? Days { get; set; }
         public DateTime? VisitingDate { get; set; }
+        public string? NeedType { get; set; }
+        public List<string>? GuideHelpWith { get; set; }
+        public int? GuideHours { get; set; }
+        public List<string>? GuideLanguages { get; set; }
+        public int? GuideBudgetPerHour { get; set; }
     }
 
     public class UpdateGuestPostRequest
@@ -318,5 +355,10 @@ namespace FestiveGuestAPI.Controllers
         public int? Visitors { get; set; }
         public int? Days { get; set; }
         public DateTime? VisitingDate { get; set; }
+        public string? NeedType { get; set; }
+        public List<string>? GuideHelpWith { get; set; }
+        public int? GuideHours { get; set; }
+        public List<string>? GuideLanguages { get; set; }
+        public int? GuideBudgetPerHour { get; set; }
     }
 }

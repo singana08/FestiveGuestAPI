@@ -1,5 +1,6 @@
 using Azure;
 using Azure.Data.Tables;
+using System.Text.Json.Serialization;
 
 namespace FestiveGuestAPI.Models
 {
@@ -12,6 +13,8 @@ namespace FestiveGuestAPI.Models
 
         public string UserId { get; set; } = "";
         public string UserName { get; set; } = "";
+        // Stored for notifications; never sent to other members in API responses.
+        [JsonIgnore]
         public string UserEmail { get; set; } = "";
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
