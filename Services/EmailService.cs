@@ -14,7 +14,8 @@ public interface IEmailService
     Task<EmailResponse> SendForgotPasswordOTPAsync(string email);
     Task<EmailResponse> ValidateOTPAsync(ValidateOTPRequest request);
     Task SendRegistrationConfirmationAsync(string email, string name);
-    Task SendGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId, bool isUpdate = false);
+    Task SendGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId, bool isUpdate = false, string? guideSummary = null);
+    Task SendUserReportAsync(UserReportEntity report);
     Task SendHostPostNotificationAsync(string guestEmail, string guestName, string hostName, string postTitle, string location, string postId, bool isUpdate = false);
     Task<EmailResponse> SendInvitationsAsync(SendInvitationsRequest request);
 }
@@ -164,21 +165,28 @@ public class EmailService : IEmailService
         await SendEmailAsync(email, "Welcome to Festive Guest!", htmlBody);
     }
 
-    public async Task SendGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId, bool isUpdate = false)
+    public async Task SendGuestPostNotificationAsync(string hostEmail, string hostName, string guestName, string postTitle, string location, string postId, bool isUpdate = false, string? guideSummary = null)
     {
         var postsUrl = $"{_secrets.AppBaseUrl}/posts";
         var label = isUpdate ? "updated their" : "new";
-        var emoji = isUpdate ? "✏️" : "🏠";
-        var heading = isUpdate ? "Guest Post Updated in Your Area!" : "New Guest in Your Area!";
+        var needsGuide = !string.IsNullOrEmpty(guideSummary);
+        var emoji = isUpdate ? "✏️" : needsGuide ? "🧭" : "🏠";
+        var heading = isUpdate ? "Guest Post Updated in Your Area!" : needsGuide ? "A Traveller Needs a Local Guide!" : "New Guest in Your Area!";
         var subject = isUpdate
             ? $"Guest Post Updated in {location} - Festive Guest"
-            : $"New Guest Looking for Host in {location} - Festive Guest";
+            : needsGuide
+                ? $"Local Guide Needed in {location} - Festive Guest"
+                : $"New Guest Looking for Host in {location} - Festive Guest";
+        var lookingFor = needsGuide ? "a local to guide them for a few hours" : "a host";
+        // Names and titles are typed by members, so they're HTML-encoded before going into the email.
+        var guideLine = needsGuide ? $"<p style=\"margin: 5px 0 0 0;\">🧭 {WebUtility.HtmlEncode(guideSummary)}</p>" : "";
         var content = $@"
-            <p>Hi <strong>{hostName}</strong>,</p>
-            <p>A guest has {label} post looking for a host in your area!</p>
+            <p>Hi <strong>{WebUtility.HtmlEncode(hostName)}</strong>,</p>
+            <p>A guest has {label} post looking for {lookingFor} in your area!</p>
             <div class=""welcome-box"">
-                <h3 style=""margin: 0;"">{emoji} {postTitle}</h3>
-                <p style=""margin: 5px 0 0 0;"">📍 {location} &bull; Posted by {guestName}</p>
+                <h3 style=""margin: 0;"">{emoji} {WebUtility.HtmlEncode(postTitle)}</h3>
+                <p style=""margin: 5px 0 0 0;"">📍 {WebUtility.HtmlEncode(location)} &bull; Posted by {WebUtility.HtmlEncode(guestName)}</p>
+                {guideLine}
             </div>
             <p style=""text-align: center;"">
                 <a href=""{postsUrl}"" style=""background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"">View Posts</a>
@@ -250,6 +258,23 @@ public class EmailService : IEmailService
                 ? $"Invitations sent to {sent} contacts"
                 : $"Sent {sent}, failed {failed}"
         };
+    }
+
+    public async Task SendUserReportAsync(UserReportEntity report)
+    {
+        string E(string v) => WebUtility.HtmlEncode(v);
+        var details = E(report.Details).Replace("\n", "<br/>");
+        var content = $@"
+            <p>A member has reported another member.</p>
+            <div class=""security-note"">
+                <p style=""margin: 0;""><strong>Reported:</strong> {E(report.ReportedName)} ({E(report.ReportedUserId)})</p>
+                <p style=""margin: 5px 0 0 0;""><strong>Reason:</strong> {E(report.Reason)}</p>
+                <p style=""margin: 5px 0 0 0;""><strong>Where:</strong> {E(report.Context)}</p>
+                <p style=""margin: 5px 0 0 0;""><strong>By:</strong> {E(report.ReporterName)} ({E(report.ReporterId)})</p>
+            </div>
+            <p><strong>Details:</strong><br/>{details}</p>
+            <p style=""font-size: 13px; color: #888;"">Report id {E(report.RowKey)} — stored in the UserReports table.</p>";
+        await SendEmailAsync(_secrets.FromEmailAddress, $"Member report: {report.Reason} - Festive Guest", CreateEmailTemplate("Member Report", content));
     }
 
     private async Task SendEmailAsync(string toEmail, string subject, string body)

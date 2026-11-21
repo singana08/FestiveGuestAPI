@@ -39,7 +39,7 @@ public class NotificationService : INotificationService
                 try
                 {
                     await _emailService.SendGuestPostNotificationAsync(
-                        host.Email, host.Name, post.UserName, post.Title, post.Location, post.RowKey, isUpdate);
+                        host.Email, host.Name, post.UserName, post.Title, post.Location, post.RowKey, isUpdate, post.GuideSummary());
                 }
                 catch (Exception ex)
                 {

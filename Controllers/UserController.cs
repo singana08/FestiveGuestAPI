@@ -233,7 +233,7 @@ public class UserController : ControllerBase
             id = user.RowKey,
             userId = user.RowKey,
             name = user.Name,
-            email = user.Email,
+            isVerified = user.IsVerified, // email deliberately not shared
             userType = user.UserType,
             location = user.Location,
             bio = user.Bio,
@@ -290,7 +290,7 @@ public class UserController : ControllerBase
             id = user.RowKey,
             userId = user.RowKey,
             name = user.Name,
-            email = user.Email,
+            isVerified = user.IsVerified, // email deliberately not shared
             userType = user.UserType,
             location = user.Location,
             bio = user.Bio,

@@ -14,12 +14,16 @@ public class ChatController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
     private readonly TableServiceClient _tableServiceClient;
+    private readonly ISafetyRepository _safety;
 
-    public ChatController(IUserRepository userRepository, TableServiceClient tableServiceClient)
+    public ChatController(IUserRepository userRepository, TableServiceClient tableServiceClient, ISafetyRepository safety)
     {
         _userRepository = userRepository;
         _tableServiceClient = tableServiceClient;
+        _safety = safety;
     }
+
+    private const string BlockedMessage = "You can't message this member.";
 
     [HttpPost("start-chat")]
     public async Task<IActionResult> StartChat([FromBody] StartChatRequest request)
@@ -38,6 +42,11 @@ public class ChatController : ControllerBase
             if (currentUser == null || otherUser == null)
             {
                 return BadRequest("Users not found");
+            }
+
+            if (await _safety.IsBlockedEitherWayAsync(userId, request.OtherUserId))
+            {
+                return StatusCode(403, new { message = BlockedMessage });
             }
 
             var sortedIds = new[] { userId, request.OtherUserId }.OrderBy(x => x).ToArray();
@@ -73,6 +82,9 @@ public class ChatController : ControllerBase
             var recipientId = request.GetRecipientId();
             if (string.IsNullOrEmpty(recipientId))
                 return BadRequest("RecipientId is required");
+
+            if (await _safety.IsBlockedEitherWayAsync(userId, recipientId))
+                return StatusCode(403, new { success = false, message = BlockedMessage });
 
             var sortedIds = new[] { userId, recipientId }.OrderBy(x => x).ToArray();
             var chatRoom = $"chat_{sortedIds[0]}_{sortedIds[1]}";
@@ -260,8 +272,10 @@ public class ChatController : ControllerBase
                     userMessages.Add(msg);
             }
 
+            var hidden = await _safety.GetHiddenUserIdsAsync(userId);
             var conversations = userMessages
                 .GroupBy(m => m.PartitionKey.Replace("chat_", "").Split('_').First(id => id != userId))
+                .Where(g => !hidden.Contains(g.Key))
                 .Select(g => {
                     var latest = g.OrderByDescending(m => m.Timestamp).First();
                     return new {

@@ -137,6 +137,7 @@ builder.Services.AddScoped<IOTPRepository, OTPRepository>();
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
 builder.Services.AddScoped<IGuestPostRepository, GuestPostRepository>();
 builder.Services.AddScoped<IHostPostRepository, HostPostRepository>();
+builder.Services.AddScoped<ISafetyRepository, SafetyRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<IReferralPointsService, ReferralPointsService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

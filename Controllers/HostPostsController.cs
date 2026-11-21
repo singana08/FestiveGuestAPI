@@ -94,6 +94,7 @@ namespace FestiveGuestAPI.Controllers
                     return Ok(new List<object>());
                 }
                 
+                posts = await PostListFilter.HideBlockedAndMarkVerifiedAsync(HttpContext, userId, posts, p => p.UserId, (p, v) => p.UserVerified = v);
                 return Ok(posts);
             }
             catch (Exception ex)

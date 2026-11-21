@@ -1,5 +1,6 @@
 using Azure;
 using Azure.Data.Tables;
+using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
 namespace FestiveGuestAPI.Models
@@ -24,6 +25,10 @@ namespace FestiveGuestAPI.Models
         public decimal? PricePerNight { get; set; }
         public DateTime? CommencementDate { get; set; }
         public string Status { get; set; } = "Active";
+
+        // Filled in per request (poster's phone verified); not stored.
+        [IgnoreDataMember]
+        public bool UserVerified { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 

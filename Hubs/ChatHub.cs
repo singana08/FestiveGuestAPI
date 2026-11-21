@@ -12,11 +12,13 @@ public class ChatHub : Hub
 {
     private readonly IUserRepository _userRepository;
     private readonly TableServiceClient _tableServiceClient;
+    private readonly ISafetyRepository _safety;
 
-    public ChatHub(IUserRepository userRepository, TableServiceClient tableServiceClient)
+    public ChatHub(IUserRepository userRepository, TableServiceClient tableServiceClient, ISafetyRepository safety)
     {
         _userRepository = userRepository;
         _tableServiceClient = tableServiceClient;
+        _safety = safety;
     }
 
     public async Task JoinChat(string otherUserId)
@@ -53,6 +55,10 @@ public class ChatHub : Hub
                 await Clients.Caller.SendAsync("Error", "User not found");
                 return;
             }
+
+            // Thrown (not just reported) so the client's invoke fails and the message isn't shown as sent.
+            if (await _safety.IsBlockedEitherWayAsync(userId, otherUserId))
+                throw new HubException("You can't message this member.");
 
             var sortedIds = new[] { userId, otherUserId }.OrderBy(x => x).ToArray();
             var chatRoom = $"chat_{sortedIds[0]}_{sortedIds[1]}";

@@ -80,7 +80,8 @@ namespace FestiveGuestAPI.Controllers
             guideHelpWith = p.GuideHelpWith,
             guideHours = p.GuideHours,
             guideLanguages = p.GuideLanguages,
-            guideBudgetPerHour = p.GuideBudgetPerHour
+            guideBudgetPerHour = p.GuideBudgetPerHour,
+            userVerified = p.UserVerified
         };
 
         [HttpPost]
@@ -189,6 +190,7 @@ namespace FestiveGuestAPI.Controllers
                     catch { return Ok(new List<object>()); }
                 }
                 
+                posts = await PostListFilter.HideBlockedAndMarkVerifiedAsync(HttpContext, userId, posts, p => p.UserId, (p, v) => p.UserVerified = v);
                 return Ok(posts.Select(ToResponse));
             }
             catch (Exception ex)
