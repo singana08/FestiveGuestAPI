@@ -287,6 +287,16 @@ public class AuthService : IAuthService
             if (profile == null)
                 return new GoogleVerifyResponse { Success = false, Message = "Invalid Google token." };
 
+            // This endpoint is the Google sign-up step; a taken email should
+            // fail here, not at the final register call.
+            if (await _userRepository.GetUserByEmailAsync(profile.Value.Email) != null)
+                return new GoogleVerifyResponse
+                {
+                    Success = false,
+                    AlreadyRegistered = true,
+                    Message = "An account with this email already exists. Please sign in instead."
+                };
+
             return new GoogleVerifyResponse
             {
                 Success = true,

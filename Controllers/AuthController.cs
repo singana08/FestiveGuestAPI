@@ -107,7 +107,7 @@ public class AuthController : ControllerBase
         var result = await _authService.GoogleVerifyAsync(request.IdToken);
 
         if (!result.Success)
-            return BadRequest(result);
+            return result.AlreadyRegistered ? Conflict(result) : BadRequest(result);
 
         return Ok(result);
     }

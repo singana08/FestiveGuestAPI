@@ -10,11 +10,15 @@ namespace FestiveGuestAPI.Controllers;
 [Route("api/[controller]")]
 public class EmailController : ControllerBase
 {
-    private readonly IEmailService _emailService;
+    public const string EmailAlreadyRegisteredMessage = "An account with this email already exists. Please sign in instead.";
 
-    public EmailController(IEmailService emailService)
+    private readonly IEmailService _emailService;
+    private readonly IUserRepository _userRepository;
+
+    public EmailController(IEmailService emailService, IUserRepository userRepository)
     {
         _emailService = emailService;
+        _userRepository = userRepository;
     }
 
     [HttpPost("send-otp")]
@@ -24,6 +28,15 @@ public class EmailController : ControllerBase
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+
+        // For sign-up, reject a taken email before a code is sent, so the user
+        // finds out at the first step instead of after completing the whole
+        // form (AuthService.RegisterAsync does the same lookup at the end).
+        if (request.Purpose.Equals("registration", StringComparison.OrdinalIgnoreCase)
+            && await _userRepository.GetUserByEmailAsync(request.Email) != null)
+        {
+            return Conflict(new EmailResponse { Success = false, Message = EmailAlreadyRegisteredMessage });
         }
 
         var result = await _emailService.SendOTPAsync(request);
