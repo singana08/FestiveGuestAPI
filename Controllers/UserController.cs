@@ -51,6 +51,33 @@ public class UserController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Verify the signed-in member's phone after sign-up (OTP done via /api/phone-otp with purpose "verify").</summary>
+    [HttpPost("verify-phone")]
+    public async Task<IActionResult> VerifyPhone([FromBody] VerifyPhoneRequest request)
+    {
+        var userId = User.FindFirst("userId")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null) return NotFound(new { message = "User not found" });
+
+        var phone = (request.Phone ?? "").Trim();
+        if (phone.Length < 10 || !phone.All(char.IsDigit))
+            return BadRequest(new { message = "Enter a valid mobile number" });
+
+        var sms = HttpContext.RequestServices.GetRequiredService<ISmsOtpService>();
+        if (sms.ValidateVerificationToken(request.VerificationToken, phone, "verify") == null)
+            return BadRequest(new { message = "That code has expired. Please request a new one." });
+
+        var other = await _userRepository.GetVerifiedUserByPhoneAsync(phone);
+        if (other != null && other.RowKey != user.RowKey)
+            return Conflict(new { message = "This number is already verified on another account." });
+
+        user.Phone = phone;
+        user.IsVerified = true;
+        await _userRepository.UpdateUserAsync(user);
+        return Ok(new { success = true, phone, isVerified = true });
+    }
+
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
     {
@@ -504,4 +531,10 @@ public class UserController : ControllerBase
             return new NotificationPreferencesDto { Email = true, Push = false };
         }
     }
+}
+
+public class VerifyPhoneRequest
+{
+    public string? Phone { get; set; }
+    public string? VerificationToken { get; set; }
 }

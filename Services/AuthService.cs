@@ -85,17 +85,22 @@ public class AuthService : IAuthService
                 }
             }
 
-            // Phone OTP verification is only enforced once TwoFactorApiKey is configured in Key Vault —
-            // until then every registration stays auto-verified, matching current production behavior.
-            bool phoneVerified = !_smsOtpService.IsConfigured;
-            if (_smsOtpService.IsConfigured)
+            // Verifying the phone at sign-up is optional (SMS can fail); members can verify later
+            // from their profile. Only a real OTP check marks the number as verified.
+            bool phoneVerified = false;
+            if (!string.IsNullOrWhiteSpace(request.PhoneVerificationToken))
             {
-                var verified = _smsOtpService.ValidateVerificationToken(request.PhoneVerificationToken, request.Phone, "register");
-                if (verified == null)
+                if (_smsOtpService.ValidateVerificationToken(request.PhoneVerificationToken, request.Phone, "register") == null)
                 {
-                    return new AuthResponse { Success = false, Message = "Please verify your phone number with the OTP sent via SMS." };
+                    return new AuthResponse { Success = false, Message = "Your phone verification expired. Verify again, or continue and verify later from your profile." };
                 }
                 phoneVerified = true;
+            }
+
+            // A number someone has already verified can't be claimed by another account.
+            if (await _userRepository.GetVerifiedUserByPhoneAsync(request.Phone) != null)
+            {
+                return new AuthResponse { Success = false, Message = "This phone number is already registered." };
             }
 
             // Create user entity
@@ -194,10 +199,11 @@ public class AuthService : IAuthService
             return new AuthResponse { Success = false, Message = "Invalid or expired phone verification." };
         }
 
-        var user = await _userRepository.GetUserByPhoneAsync(request.Phone);
+        // Only verified numbers can sign in — otherwise whoever owns a mistyped number could.
+        var user = await _userRepository.GetVerifiedUserByPhoneAsync(request.Phone);
         if (user == null)
         {
-            return new AuthResponse { Success = false, Message = "No account found with this phone number." };
+            return new AuthResponse { Success = false, Message = "No account with this verified phone number. Sign in with your email, then verify your phone from your profile." };
         }
 
         if (user.Status != "Active")
@@ -225,8 +231,15 @@ public class AuthService : IAuthService
         if (!string.IsNullOrEmpty(request.Name))
             user.Name = request.Name;
 
-        if (!string.IsNullOrEmpty(request.Phone))
-            user.Phone = request.Phone;
+        // The profile endpoint hands out masked numbers (98******10), so anything that isn't
+        // plain digits is ignored rather than saved over the real one. A new number has to be
+        // verified again — otherwise its owner could use phone sign-in on this account.
+        var newPhone = request.Phone?.Trim();
+        if (!string.IsNullOrEmpty(newPhone) && newPhone.All(char.IsDigit) && newPhone != user.Phone)
+        {
+            user.Phone = newPhone;
+            user.IsVerified = false;
+        }
 
         if (!string.IsNullOrEmpty(request.Location))
             user.Location = request.Location;
@@ -377,10 +390,10 @@ public class AuthService : IAuthService
                 return new AuthResponse { Success = false, Message = "Invalid or expired phone verification." };
             }
 
-            var user = await _userRepository.GetUserByPhoneAsync(request.Phone);
+            var user = await _userRepository.GetVerifiedUserByPhoneAsync(request.Phone);
             if (user == null)
             {
-                return new AuthResponse { Success = false, Message = "User not found." };
+                return new AuthResponse { Success = false, Message = "No account with this verified phone number. Reset your password by email instead." };
             }
 
             user.Password = HashPassword(request.NewPassword);

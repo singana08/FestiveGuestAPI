@@ -9,7 +9,7 @@ namespace FestiveGuestAPI.Controllers;
 [Route("api/phone-otp")]
 public class PhoneOtpController : ControllerBase
 {
-    private static readonly string[] ValidPurposes = { "register", "login", "reset" };
+    private static readonly string[] ValidPurposes = { "register", "login", "reset", "verify" };
 
     private readonly ISmsOtpService _smsOtpService;
 

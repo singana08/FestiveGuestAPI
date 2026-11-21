@@ -53,6 +53,15 @@ public class UserRepository : IUserRepository
         return null;
     }
 
+    public async Task<UserEntity?> GetVerifiedUserByPhoneAsync(string phone)
+    {
+        await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.Phone == phone && u.IsVerified))
+        {
+            return user;
+        }
+        return null;
+    }
+
     public async Task<UserEntity?> GetUserByNameAsync(string name)
     {
         await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.Name.ToLower() == name.ToLower()))

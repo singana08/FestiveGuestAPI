@@ -8,6 +8,8 @@ public interface IUserRepository
     Task<UserEntity?> GetUserByIdAsync(string userId);
     Task<UserEntity?> GetUserByEmailAsync(string email);
     Task<UserEntity?> GetUserByPhoneAsync(string phone);
+    /// <summary>The account whose phone number was confirmed by OTP (numbers are only trusted once verified).</summary>
+    Task<UserEntity?> GetVerifiedUserByPhoneAsync(string phone);
     Task<UserEntity?> GetUserByNameAsync(string name);
     Task<UserEntity?> GetUserByReferralCodeAsync(string referralCode);
     Task<IEnumerable<UserEntity>> GetUsersByTypeAsync(string userType);
