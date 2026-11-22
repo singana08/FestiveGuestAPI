@@ -218,12 +218,19 @@ public class UserController : ControllerBase
         });
     }
 
+    /// <summary>Profile links carry the member's name; older links swapped spaces for hyphens, so try both (exact first, for names like Mary-Ann).</summary>
+    private async Task<UserEntity?> FindByProfileName(string userName)
+    {
+        var name = Uri.UnescapeDataString(userName);
+        return await _userRepository.GetUserByNameAsync(name)
+            ?? (name.Contains('-') ? await _userRepository.GetUserByNameAsync(name.Replace("-", " ")) : null);
+    }
+
     [HttpGet("public-profile-by-name/{userName}")]
     public async Task<IActionResult> GetPublicProfileByName(string userName)
     {
-        var decodedName = Uri.UnescapeDataString(userName).Replace("-", " ");
-        var user = await _userRepository.GetUserByNameAsync(decodedName);
-        
+        var user = await FindByProfileName(userName);
+
         if (user == null)
             return NotFound("User not found");
 
@@ -341,9 +348,8 @@ public class UserController : ControllerBase
     {
         try
         {
-            var decodedName = Uri.UnescapeDataString(userName).Replace("-", " ");
-            var user = await _userRepository.GetUserByNameAsync(decodedName);
-            
+            var user = await FindByProfileName(userName);
+
             if (user == null)
                 return Ok(new List<object>());
 

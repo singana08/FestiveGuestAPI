@@ -21,6 +21,7 @@ public interface IEmailService
     Task SendSecurityAlertAsync(string email, string name, string what, string device);
     Task SendNewMessageEmailAsync(string email, string name, string senderName);
     Task SendFeedbackAsync(FeedbackEntity feedback);
+    Task SendAccountStatusEmailAsync(string email, string name, bool suspended);
 }
 
 public class EmailService : IEmailService
@@ -324,6 +325,27 @@ public class EmailService : IEmailService
             </div>
             <p>{E(feedback.Message).Replace("\n", "<br/>")}</p>";
         await SendEmailAsync(_secrets.FromEmailAddress, $"Feedback from {feedback.Name} - Festive Guest", CreateEmailTemplate("Member Feedback", content), replyTo: feedback.Email);
+    }
+
+    public async Task SendAccountStatusEmailAsync(string email, string name, bool suspended)
+    {
+        var hi = $"<p>Hi <strong>{WebUtility.HtmlEncode(name)}</strong>,</p>";
+        var (subject, heading, content) = suspended
+            ? ("Your account has been suspended - Festive Guest", "Your account has been suspended", $@"
+                {hi}
+                <p>Your FestiveGuest account has been suspended after a review by our team.</p>
+                <div class=""security-note"">
+                    <p style=""margin: 0;"">While it's suspended you can't sign in or send messages, and your posts are hidden from other members.</p>
+                </div>
+                <p>If you think this is a mistake, email <a href=""mailto:customer-support@festiveguest.com"">customer-support@festiveguest.com</a> and we'll look at it again.</p>")
+            : ("Your account is active again - Festive Guest", "Your account is active again", $@"
+                {hi}
+                <p>Your FestiveGuest account is active again. You can sign in, message members, and your posts are visible again.</p>
+                <p>Please follow our <a href=""{_secrets.AppBaseUrl}/safety-guidelines"">Safety Guidelines</a> so everyone can keep using FestiveGuest safely.</p>
+                <p style=""text-align: center;"">
+                    <a href=""{_secrets.AppBaseUrl}/login"" style=""background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;"">Sign in</a>
+                </p>");
+        await SendEmailAsync(email, subject, CreateEmailTemplate(heading, content));
     }
 
     private async Task SendEmailAsync(string toEmail, string subject, string body, string? replyTo = null)

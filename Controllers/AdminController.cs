@@ -18,12 +18,14 @@ public class AdminController : ControllerBase
 
     private readonly IUserRepository _userRepository;
     private readonly ISafetyRepository _safety;
+    private readonly IEmailService _email;
     private readonly ILogger<AdminController> _logger;
 
-    public AdminController(IUserRepository userRepository, ISafetyRepository safety, ILogger<AdminController> logger)
+    public AdminController(IUserRepository userRepository, ISafetyRepository safety, IEmailService email, ILogger<AdminController> logger)
     {
         _userRepository = userRepository;
         _safety = safety;
+        _email = email;
         _logger = logger;
     }
 
@@ -80,10 +82,20 @@ public class AdminController : ControllerBase
         if (user.UserType.Equals("Admin", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { message = "Admin accounts can't be suspended here" });
 
+        var changed = user.Status != status;
         user.Status = status;
         await _userRepository.UpdateUserAsync(user);
         AccountStatus.Forget(HttpContext.RequestServices, userId);
-        return Ok(new { success = true, status });
+
+        // Tell the member, so a suspension isn't an unexplained sign-out. Who reported them stays private.
+        // Not switchable in their profile: this is about their account, not a notification.
+        var emailed = false;
+        if (changed && !string.IsNullOrEmpty(user.Email))
+        {
+            try { await _email.SendAccountStatusEmailAsync(user.Email, user.Name, suspended: status == AccountStatus.Suspended); emailed = true; }
+            catch (Exception ex) { _logger.LogWarning(ex, "Couldn't email member {UserId} about their account status", userId); }
+        }
+        return Ok(new { success = true, status, emailed });
     }
 
     [HttpGet("reports")]

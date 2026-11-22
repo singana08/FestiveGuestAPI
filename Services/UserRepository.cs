@@ -64,11 +64,13 @@ public class UserRepository : IUserRepository
 
     public async Task<UserEntity?> GetUserByNameAsync(string name)
     {
-        await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.Name.ToLower() == name.ToLower()))
+        // Table Storage only matches exactly (it can't run ToLower), and profile links carry the exact name.
+        await foreach (var user in _tableClient.QueryAsync<UserEntity>(u => u.Name == name))
         {
             return user;
         }
-        return null;
+        // ponytail: case-insensitive fallback scans every member; add a lowercase-name column if members reach the tens of thousands.
+        return (await GetAllUsersAsync()).FirstOrDefault(u => string.Equals(u.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<UserEntity?> GetUserByReferralCodeAsync(string referralCode)
