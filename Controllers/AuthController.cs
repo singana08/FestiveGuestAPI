@@ -13,11 +13,29 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IUserRepository _userRepository;
+    private readonly INotificationService _notifications;
 
-    public AuthController(IAuthService authService, IUserRepository userRepository)
+    public AuthController(IAuthService authService, IUserRepository userRepository, INotificationService notifications)
     {
         _authService = authService;
         _userRepository = userRepository;
+        _notifications = notifications;
+    }
+
+    private string UserAgent => Request.Headers.UserAgent.ToString();
+
+    // Emails go out in the background so signing in isn't slowed down by the mail server.
+    private void AlertSignIn(AuthResponse result, string method)
+    {
+        if (result.User == null) return;
+        var (user, userAgent) = (result.User, UserAgent);
+        _ = Task.Run(() => _notifications.NotifySignInAsync(user, userAgent, method));
+    }
+
+    private void AlertPasswordChanged(Models.UserEntity? user)
+    {
+        var userAgent = UserAgent;
+        _ = Task.Run(() => _notifications.NotifyPasswordChangedAsync(user, userAgent));
     }
 
     [HttpPost("register")]
@@ -48,12 +66,13 @@ public class AuthController : ControllerBase
         }
 
         var result = await _authService.LoginAsync(request);
-        
+
         if (!result.Success)
         {
             return Unauthorized(result);
         }
 
+        AlertSignIn(result, "email and password");
         return Ok(result);
     }
 
@@ -94,6 +113,7 @@ public class AuthController : ControllerBase
         if (!result.Success)
             return BadRequest(result);
 
+        AlertSignIn(result, "Google");
         return Ok(result);
     }
 
@@ -127,6 +147,7 @@ public class AuthController : ControllerBase
             return BadRequest(result);
         }
 
+        AlertPasswordChanged(await _userRepository.GetUserByEmailAsync(request.Email.ToLower()));
         return Ok(result);
     }
 
@@ -145,6 +166,7 @@ public class AuthController : ControllerBase
             return BadRequest(result);
         }
 
+        AlertPasswordChanged(await _userRepository.GetVerifiedUserByPhoneAsync(request.Phone));
         return Ok(result);
     }
 
@@ -164,6 +186,7 @@ public class AuthController : ControllerBase
             return Unauthorized(result);
         }
 
+        AlertSignIn(result, "a phone code");
         return Ok(result);
     }
 
@@ -183,12 +206,13 @@ public class AuthController : ControllerBase
         }
 
         var result = await _authService.ChangePasswordAsync(request, userId);
-        
+
         if (!result.Success)
         {
             return BadRequest(result);
         }
 
+        AlertPasswordChanged(await _userRepository.GetUserByIdAsync(userId));
         return Ok(result);
     }
 

@@ -233,7 +233,7 @@ public class AuthService : IAuthService
         if (!string.IsNullOrEmpty(request.Name))
             user.Name = request.Name;
 
-        // The profile endpoint hands out masked numbers (98******10), so anything that isn't
+        // The API hands out masked numbers (98******10), so anything that isn't
         // plain digits is ignored rather than saved over the real one. A new number has to be
         // verified again — otherwise its owner could use phone sign-in on this account.
         var newPhone = request.Phone?.Trim();
@@ -492,7 +492,8 @@ public class AuthService : IAuthService
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(30), // 30 days expiration
+            // Admin sessions are short: a stolen admin login stops working the same day.
+            Expires = userType == "Admin" ? DateTime.UtcNow.AddHours(12) : DateTime.UtcNow.AddDays(30),
             Issuer = _secrets.JwtIssuer,
             Audience = _secrets.JwtAudience,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -539,7 +540,7 @@ public class AuthService : IAuthService
             UserId = user.RowKey,
             Name = user.Name,
             Email = user.Email,
-            Phone = user.Phone,
+            Phone = PhoneMask.Apply(user.Phone),
             UserType = user.UserType,
             Status = user.Status,
             Location = user.Location,
@@ -553,22 +554,7 @@ public class AuthService : IAuthService
             SubscriptionStatus = subscription?.SubscriptionStatus ?? "free",
             SuccessfulReferrals = successfulReferrals,
             ReferralPoints = user.ReferralPoints,
-            NotificationPreferences = ParseNotificationPreferences(user.NotificationPreferences)
+            NotificationPreferences = NotificationPreferencesDto.Parse(user.NotificationPreferences)
         };
-    }
-
-    private static NotificationPreferencesDto ParseNotificationPreferences(string json)
-    {
-        if (string.IsNullOrEmpty(json))
-            return new NotificationPreferencesDto { Email = true, Push = false };
-        try
-        {
-            return JsonSerializer.Deserialize<NotificationPreferencesDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                   ?? new NotificationPreferencesDto { Email = true, Push = false };
-        }
-        catch
-        {
-            return new NotificationPreferencesDto { Email = true, Push = false };
-        }
     }
 }

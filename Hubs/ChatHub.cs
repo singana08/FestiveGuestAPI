@@ -13,12 +13,14 @@ public class ChatHub : Hub
     private readonly IUserRepository _userRepository;
     private readonly TableServiceClient _tableServiceClient;
     private readonly ISafetyRepository _safety;
+    private readonly INotificationService _notifications;
 
-    public ChatHub(IUserRepository userRepository, TableServiceClient tableServiceClient, ISafetyRepository safety)
+    public ChatHub(IUserRepository userRepository, TableServiceClient tableServiceClient, ISafetyRepository safety, INotificationService notifications)
     {
         _userRepository = userRepository;
         _tableServiceClient = tableServiceClient;
         _safety = safety;
+        _notifications = notifications;
     }
 
     public async Task JoinChat(string otherUserId)
@@ -82,6 +84,7 @@ public class ChatHub : Hub
             };
 
             await messagesTable.AddEntityAsync(messageEntity);
+            _ = Task.Run(() => _notifications.NotifyNewMessageAsync(userId, user.Name, otherUserId));
 
             await Clients.Group(chatRoom).SendAsync("ReceiveMessage", new
             {

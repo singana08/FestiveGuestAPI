@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using FestiveGuestAPI.Models;
+using FestiveGuestAPI.Services;
 using Azure.Data.Tables;
 using System.ComponentModel.DataAnnotations;
 
@@ -11,10 +12,14 @@ namespace FestiveGuestAPI.Controllers;
 public class FeedbackController : ControllerBase
 {
     private readonly TableServiceClient _tableServiceClient;
+    private readonly IEmailService _email;
+    private readonly ILogger<FeedbackController> _logger;
 
-    public FeedbackController(TableServiceClient tableServiceClient)
+    public FeedbackController(TableServiceClient tableServiceClient, IEmailService email, ILogger<FeedbackController> logger)
     {
         _tableServiceClient = tableServiceClient;
+        _email = email;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -47,13 +52,16 @@ public class FeedbackController : ControllerBase
 
             await feedbackTable.AddEntityAsync(feedbackEntity);
 
+            // Saved first, so a mail hiccup never loses feedback; the email is how someone actually sees it.
+            try { await _email.SendFeedbackAsync(feedbackEntity); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Feedback {Id} saved but the support email failed", feedbackEntity.RowKey); }
+
             return Ok(new { success = true, message = "Feedback submitted successfully" });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Feedback error: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            return StatusCode(500, new { success = false, message = $"Failed to submit feedback: {ex.Message}" });
+            _logger.LogError(ex, "Failed to save feedback");
+            return StatusCode(500, new { success = false, message = "We couldn't send your feedback. Please try again later." });
         }
     }
 }

@@ -73,52 +73,6 @@ public class SubscriptionController : ControllerBase
         }
     }
 
-    [HttpGet("admin/all")]
-    [Authorize]
-    [AdminAuthorize]
-    public async Task<IActionResult> GetAllUsersWithSubscriptions()
-    {
-        try
-        {
-            var users = await _userRepository.GetAllUsersAsync();
-            var usersWithSubscriptions = new List<object>();
-
-            foreach (var user in users)
-            {
-                var subscription = await _subscriptionRepository.GetSubscriptionByUserIdAsync(user.RowKey);
-                usersWithSubscriptions.Add(new
-                {
-                    userId = user.RowKey,
-                    name = user.Name,
-                    email = user.Email,
-                    phone = user.Phone,
-                    userType = user.UserType,
-                    status = user.Status,
-                    createdDate = user.CreatedDate,
-                    subscriptionStatus = subscription?.SubscriptionStatus ?? "free",
-                    paymentVerifiedTimestamp = subscription?.PaymentVerifiedTimestamp,
-                    lastUpdated = subscription?.Timestamp?.DateTime
-                });
-            }
-
-            return Ok(new
-            {
-                success = true,
-                message = "Users retrieved successfully",
-                users = usersWithSubscriptions
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving all users with subscriptions");
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Error retrieving users"
-            });
-        }
-    }
-
     [HttpPost("update")]
     [Authorize]
     [AdminAuthorize]

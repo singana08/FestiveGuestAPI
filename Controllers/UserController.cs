@@ -75,7 +75,7 @@ public class UserController : ControllerBase
         user.Phone = phone;
         user.IsVerified = true;
         await _userRepository.UpdateUserAsync(user);
-        return Ok(new { success = true, phone, isVerified = true });
+        return Ok(new { success = true, isVerified = true });
     }
 
     [HttpGet("profile")]
@@ -144,7 +144,7 @@ public class UserController : ControllerBase
             UserId = user.RowKey,
             Name = user.Name,
             Email = MaskEmail(user.Email),
-            Phone = MaskPhone(user.Phone),
+            Phone = PhoneMask.Apply(user.Phone),
             UserType = user.UserType,
             Status = user.Status,
             Location = user.Location,
@@ -157,66 +157,10 @@ public class UserController : ControllerBase
             SuccessfulReferrals = successfulReferrals,
             ReferralPoints = user.ReferralPoints,
             SubscriptionStatus = subscription?.SubscriptionStatus ?? "free",
-            NotificationPreferences = ParseNotificationPreferences(user.NotificationPreferences)
+            NotificationPreferences = NotificationPreferencesDto.Parse(user.NotificationPreferences)
         };
 
         return Ok(userDto);
-    }
-
-    [HttpGet("browse")]
-    public async Task<IActionResult> BrowseUsers()
-    {
-        var userId = User.FindFirst("userId")?.Value;
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        var currentUser = await _userRepository.GetUserByIdAsync(userId);
-        if (currentUser == null)
-        {
-            return NotFound("User not found");
-        }
-
-        // If user is Guest, return Hosts; if user is Host, return Guests
-        var targetUserType = currentUser.UserType == "Guest" ? "Host" : "Guest";
-        var users = await _userRepository.GetUsersByTypeAsync(targetUserType);
-
-        var userDtos = users.Select(u => {
-            // Generate SAS URL for profile image if exists
-            string profileImageUrl = u.ProfileImageUrl;
-            if (!string.IsNullOrEmpty(profileImageUrl))
-            {
-                try
-                {
-                    var uri = new Uri(profileImageUrl);
-                    var fileName = Path.GetFileName(uri.LocalPath);
-                    profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
-                }
-                catch
-                {
-                    // If parsing fails, keep original URL
-                }
-            }
-
-            return new UserDto
-            {
-                UserId = u.RowKey,
-                Name = u.Name,
-                Email = MaskEmail(u.Email),
-                Phone = MaskPhone(u.Phone),
-                UserType = u.UserType,
-                Status = u.Status,
-                Location = u.Location,
-                Bio = u.Bio,
-                ProfileImageUrl = profileImageUrl,
-                IsVerified = u.IsVerified,
-                CreatedDate = u.CreatedDate,
-                ReferralCode = u.ReferralCode
-            };
-        }).ToList();
-
-        return Ok(userDtos);
     }
 
     [HttpPost("public-profile")]
@@ -450,12 +394,16 @@ public class UserController : ControllerBase
         var userId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
+        // Only a photo this member uploaded — otherwise anyone could wear another member's face.
+        if (!_fileUploadService.IsOwnProfileImage(dto.ImageUrl ?? "", userId))
+            return BadRequest(new { error = "That isn't a photo you uploaded." });
+
         try
         {
             var user = await _userRepository.GetUserByIdAsync(userId);
             if (user != null)
             {
-                user.ProfileImageUrl = dto.ImageUrl;
+                user.ProfileImageUrl = new Uri(dto.ImageUrl!).GetLeftPart(UriPartial.Path); // never store a SAS query
                 await _userRepository.UpdateUserAsync(user);
             }
             return Ok(new { message = "Profile updated" });
@@ -507,29 +455,6 @@ public class UserController : ControllerBase
             return $"{username[0]}***@{domain}";
         
         return $"{username[0]}{new string('*', username.Length - 2)}{username[^1]}@{domain}";
-    }
-
-    private string MaskPhone(string phone)
-    {
-        if (string.IsNullOrEmpty(phone) || phone.Length < 4)
-            return phone;
-        
-        return $"{phone[..2]}{new string('*', phone.Length - 4)}{phone[^2..]}";
-    }
-
-    private static NotificationPreferencesDto ParseNotificationPreferences(string json)
-    {
-        if (string.IsNullOrEmpty(json))
-            return new NotificationPreferencesDto { Email = true, Push = false };
-        try
-        {
-            return JsonSerializer.Deserialize<NotificationPreferencesDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                   ?? new NotificationPreferencesDto { Email = true, Push = false };
-        }
-        catch
-        {
-            return new NotificationPreferencesDto { Email = true, Push = false };
-        }
     }
 }
 

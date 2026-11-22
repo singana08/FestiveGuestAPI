@@ -15,12 +15,14 @@ public class ChatController : ControllerBase
     private readonly IUserRepository _userRepository;
     private readonly TableServiceClient _tableServiceClient;
     private readonly ISafetyRepository _safety;
+    private readonly INotificationService _notifications;
 
-    public ChatController(IUserRepository userRepository, TableServiceClient tableServiceClient, ISafetyRepository safety)
+    public ChatController(IUserRepository userRepository, TableServiceClient tableServiceClient, ISafetyRepository safety, INotificationService notifications)
     {
         _userRepository = userRepository;
         _tableServiceClient = tableServiceClient;
         _safety = safety;
+        _notifications = notifications;
     }
 
     private const string BlockedMessage = "You can't message this member.";
@@ -105,6 +107,7 @@ public class ChatController : ControllerBase
             };
 
             await messagesTable.AddEntityAsync(messageEntity);
+            _ = Task.Run(() => _notifications.NotifyNewMessageAsync(userId, user.Name, recipientId));
 
             return Ok(new
             {

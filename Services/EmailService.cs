@@ -18,6 +18,9 @@ public interface IEmailService
     Task SendUserReportAsync(UserReportEntity report);
     Task SendHostPostNotificationAsync(string guestEmail, string guestName, string hostName, string postTitle, string location, string postId, bool isUpdate = false);
     Task<EmailResponse> SendInvitationsAsync(SendInvitationsRequest request);
+    Task SendSecurityAlertAsync(string email, string name, string what, string device);
+    Task SendNewMessageEmailAsync(string email, string name, string senderName);
+    Task SendFeedbackAsync(FeedbackEntity feedback);
 }
 
 public class EmailService : IEmailService
@@ -206,11 +209,11 @@ public class EmailService : IEmailService
             ? $"Host Post Updated in {location} - Festive Guest"
             : $"New Host Available in {location} - Festive Guest";
         var content = $@"
-            <p>Hi <strong>{guestName}</strong>,</p>
+            <p>Hi <strong>{WebUtility.HtmlEncode(guestName)}</strong>,</p>
             <p>A host has {label} post in your area!</p>
             <div class=""welcome-box"">
-                <h3 style=""margin: 0;"">{emoji} {postTitle}</h3>
-                <p style=""margin: 5px 0 0 0;"">📍 {location} &bull; Hosted by {hostName}</p>
+                <h3 style=""margin: 0;"">{emoji} {WebUtility.HtmlEncode(postTitle)}</h3>
+                <p style=""margin: 5px 0 0 0;"">📍 {WebUtility.HtmlEncode(location)} &bull; Hosted by {WebUtility.HtmlEncode(hostName)}</p>
             </div>
             <p style=""text-align: center;"">
                 <a href=""{postsUrl}"" style=""background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"">View Posts</a>
@@ -224,7 +227,7 @@ public class EmailService : IEmailService
     {
         var sent = 0;
         var failed = 0;
-        var registerUrl = $"{_secrets.AppBaseUrl}/?register=true&ref={request.ReferralCode}";
+        var registerUrl = $"{_secrets.AppBaseUrl}/?register=true&ref={Uri.EscapeDataString(request.ReferralCode ?? "")}";
 
         foreach (var email in request.Emails.Distinct())
         {
@@ -232,7 +235,7 @@ public class EmailService : IEmailService
             {
                 var content = $@"
                     <p>Hi there!</p>
-                    <p><strong>{request.InviterName}</strong> has invited you to join <strong>Festive Guest</strong> — India's platform for meaningful stays during festivals, business trips, and life events.</p>
+                    <p><strong>{WebUtility.HtmlEncode(request.InviterName)}</strong> has invited you to join <strong>Festive Guest</strong> — India's platform for meaningful stays during festivals, business trips, and life events.</p>
                     <div class=""welcome-box"">
                         🎉 Connect with verified local hosts across 20+ states
                     </div>
@@ -240,7 +243,7 @@ public class EmailService : IEmailService
                     <p style=""text-align: center;"">
                         <a href=""{registerUrl}"" style=""background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); color: white; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;"">Join Festive Guest</a>
                     </p>
-                    <p style=""font-size: 13px; color: #888;"">Referral code: <strong>{request.ReferralCode}</strong></p>
+                    <p style=""font-size: 13px; color: #888;"">Referral code: <strong>{WebUtility.HtmlEncode(request.ReferralCode)}</strong></p>
                 ";
                 await SendEmailAsync(email, $"{request.InviterName} invited you to Festive Guest!", CreateEmailTemplate("You're Invited! 🎉", content));
                 sent++;
@@ -277,7 +280,53 @@ public class EmailService : IEmailService
         await SendEmailAsync(_secrets.FromEmailAddress, $"Member report: {report.Reason} - Festive Guest", CreateEmailTemplate("Member Report", content));
     }
 
-    private async Task SendEmailAsync(string toEmail, string subject, string body)
+    private const string ManageEmails = "You can turn these emails on or off in your Profile → Edit profile.";
+
+    public async Task SendSecurityAlertAsync(string email, string name, string what, string device)
+    {
+        // India has no daylight saving, so IST is a fixed +5:30.
+        var when = DateTime.UtcNow.AddHours(5.5).ToString("d MMM yyyy, h:mm tt", System.Globalization.CultureInfo.InvariantCulture) + " IST";
+        var content = $@"
+            <p>Hi <strong>{WebUtility.HtmlEncode(name)}</strong>,</p>
+            <p>{WebUtility.HtmlEncode(what)} on your FestiveGuest account.</p>
+            <div class=""security-note"">
+                <p style=""margin: 0;""><strong>Device:</strong> {WebUtility.HtmlEncode(device)}</p>
+                <p style=""margin: 5px 0 0 0;""><strong>When:</strong> {when}</p>
+            </div>
+            <p>If this was you, there's nothing to do.</p>
+            <p><strong>If it wasn't you</strong>, reset your password now from the <a href=""{_secrets.AppBaseUrl}/login"">sign-in page</a> (""Forgot password"") and email customer-support@festiveguest.com.</p>
+            <p style=""font-size: 13px; color: #888;"">{ManageEmails}</p>";
+        await SendEmailAsync(email, $"{what} - Festive Guest", CreateEmailTemplate(what, content));
+    }
+
+    public async Task SendNewMessageEmailAsync(string email, string name, string senderName)
+    {
+        // The message itself stays in the app: email is less private, and links in it could be used for scams.
+        var content = $@"
+            <p>Hi <strong>{WebUtility.HtmlEncode(name)}</strong>,</p>
+            <p><strong>{WebUtility.HtmlEncode(senderName)}</strong> sent you a message on FestiveGuest.</p>
+            <p style=""text-align: center;"">
+                <a href=""{_secrets.AppBaseUrl}/chats"" style=""background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;"">Read and reply</a>
+            </p>
+            <p style=""font-size: 13px; color: #555;"">Stay safe: keep chatting on FestiveGuest, never send money in advance, and meet in a public place first.</p>
+            <p style=""font-size: 13px; color: #888;"">{ManageEmails}</p>";
+        await SendEmailAsync(email, $"{senderName} sent you a message - Festive Guest", CreateEmailTemplate("You have a new message", content));
+    }
+
+    public async Task SendFeedbackAsync(FeedbackEntity feedback)
+    {
+        string E(string v) => WebUtility.HtmlEncode(v);
+        var content = $@"
+            <p>A member sent feedback from the Help page. Reply to this email to answer them.</p>
+            <div class=""security-note"">
+                <p style=""margin: 0;""><strong>From:</strong> {E(feedback.Name)} ({E(feedback.Email)})</p>
+                <p style=""margin: 5px 0 0 0;""><strong>Role:</strong> {E(feedback.UserType)} &bull; member id {E(feedback.UserId)}</p>
+            </div>
+            <p>{E(feedback.Message).Replace("\n", "<br/>")}</p>";
+        await SendEmailAsync(_secrets.FromEmailAddress, $"Feedback from {feedback.Name} - Festive Guest", CreateEmailTemplate("Member Feedback", content), replyTo: feedback.Email);
+    }
+
+    private async Task SendEmailAsync(string toEmail, string subject, string body, string? replyTo = null)
     {
         using var client = new SmtpClient(_secrets.SmtpHost, int.Parse(_secrets.SmtpPort))
         {
@@ -289,6 +338,7 @@ public class EmailService : IEmailService
         {
             IsBodyHtml = true
         };
+        if (!string.IsNullOrEmpty(replyTo)) message.ReplyToList.Add(replyTo);
         await client.SendMailAsync(message);
     }
 

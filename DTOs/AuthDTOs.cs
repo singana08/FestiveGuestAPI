@@ -121,7 +121,7 @@ public class UserDto
     public string UserId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    public string Phone { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty; // always masked (PhoneMask)
     public string UserType { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
@@ -146,6 +146,18 @@ public class HostingAreaDto
 
 public class NotificationPreferencesDto
 {
-    public bool Email { get; set; } = true;
+    public bool Email { get; set; } = true;    // new posts in my area
     public bool Push { get; set; } = false;
+    public bool Messages { get; set; } = true; // someone messaged me
+    public bool SignIns { get; set; } = true;  // new sign-in or password change on my account
+
+    private static readonly System.Text.Json.JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
+
+    /// <summary>Reads the stored JSON; anything missing or unreadable falls back to the defaults above.</summary>
+    public static NotificationPreferencesDto Parse(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return new();
+        try { return System.Text.Json.JsonSerializer.Deserialize<NotificationPreferencesDto>(json, Options) ?? new(); }
+        catch (System.Text.Json.JsonException) { return new(); }
+    }
 }

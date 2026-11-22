@@ -18,11 +18,13 @@ public class AdminController : ControllerBase
 
     private readonly IUserRepository _userRepository;
     private readonly ISafetyRepository _safety;
+    private readonly ILogger<AdminController> _logger;
 
-    public AdminController(IUserRepository userRepository, ISafetyRepository safety)
+    public AdminController(IUserRepository userRepository, ISafetyRepository safety, ILogger<AdminController> logger)
     {
         _userRepository = userRepository;
         _safety = safety;
+        _logger = logger;
     }
 
     private string? Me => User.FindFirst("userId")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -41,7 +43,7 @@ public class AdminController : ControllerBase
             userId = u.RowKey,
             name = u.Name,
             email = u.Email,
-            phone = u.Phone,
+            maskedPhone = PhoneMask.Apply(u.Phone),
             userType = u.UserType,
             status = u.Status,
             isVerified = u.IsVerified,
@@ -50,6 +52,19 @@ public class AdminController : ControllerBase
             referralCode = u.ReferralCode,
             successfulReferrals = string.IsNullOrEmpty(u.ReferralCode) ? 0 : joinedWithCode.GetValueOrDefault(u.ReferralCode.ToUpperInvariant()),
         }));
+    }
+
+    /// <summary>
+    /// The only place a full phone number leaves the API: an admin opening one member to call or WhatsApp them.
+    /// Each view is written to the server log (Application Insights).
+    /// </summary>
+    [HttpGet("users/{userId}/phone")]
+    public async Task<IActionResult> GetPhone(string userId)
+    {
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null) return NotFound(new { message = "Member not found." });
+        _logger.LogInformation("Admin {AdminId} viewed the phone number of member {UserId}", Me, userId);
+        return Ok(new { phone = user.Phone ?? "", isVerified = user.IsVerified });
     }
 
     /// <summary>Suspend a member (can't sign in, posts hidden, can't message) or reactivate them.</summary>

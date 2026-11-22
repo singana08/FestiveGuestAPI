@@ -15,6 +15,7 @@ public interface IFileUploadService
     Task<string> UploadProfileImageAsync(IFormFile file, string userId);
     Task<bool> DeleteProfileImageAsync(string fileName);
     string GenerateReadSasUrl(string fileName, string containerName = "logos");
+    bool IsOwnProfileImage(string url, string userId);
 }
 
 public class FileUploadService : IFileUploadService
@@ -42,6 +43,23 @@ public class FileUploadService : IFileUploadService
         }
         
         _blobServiceClient = new BlobServiceClient(new Uri($"https://{_accountName}.blob.core.windows.net"), _credential);
+    }
+
+    public bool IsOwnProfileImage(string url, string userId) => IsProfileImageOf(url, _accountName, userId);
+
+    /// <summary>
+    /// True only for a photo this member uploaded through the upload SAS:
+    /// https://{account}.blob.core.windows.net/profile-images/{userId}_{guid}.jpg (any query string is ignored).
+    /// </summary>
+    public static bool IsProfileImageOf(string url, string accountName, string userId)
+    {
+        const string folder = "/profile-images/";
+        if (string.IsNullOrEmpty(userId) || !Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps
+            || !uri.Host.Equals($"{accountName}.blob.core.windows.net", StringComparison.OrdinalIgnoreCase)
+            || !uri.AbsolutePath.StartsWith(folder, StringComparison.Ordinal))
+            return false;
+        var blobName = uri.AbsolutePath[folder.Length..];
+        return blobName.StartsWith(userId + "_", StringComparison.Ordinal) && !blobName.Contains('/') && !blobName.Contains('%');
     }
 
     public async Task<string> UploadProfileImageAsync(IFormFile file, string userId)
