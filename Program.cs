@@ -105,6 +105,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     context.Token = accessToken;
                 }
                 return Task.CompletedTask;
+            },
+            // Suspended members are turned away even while their 30-day token is still valid.
+            OnTokenValidated = async context =>
+            {
+                var userId = context.Principal?.FindFirst("userId")?.Value;
+                if (userId != null && await AccountStatus.IsSuspendedAsync(context.HttpContext.RequestServices, userId))
+                    context.Fail("This account has been suspended.");
             }
         };
     });
@@ -148,6 +155,7 @@ builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<ISasTokenService, SasTokenService>();
 builder.Services.AddHostedService<FestiveGuestAPI.BackgroundServices.OTPCleanupService>();
 builder.Services.AddSignalR();
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 

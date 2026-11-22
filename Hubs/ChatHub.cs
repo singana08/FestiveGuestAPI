@@ -57,6 +57,9 @@ public class ChatHub : Hub
             }
 
             // Thrown (not just reported) so the client's invoke fails and the message isn't shown as sent.
+            // An open chat connection outlives the per-request suspension check, so check here too.
+            if (user.Status == AccountStatus.Suspended)
+                throw new HubException("This account has been suspended.");
             if (await _safety.IsBlockedEitherWayAsync(userId, otherUserId))
                 throw new HubException("You can't message this member.");
 
@@ -91,7 +94,7 @@ public class ChatHub : Hub
                 status = "Sent"
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not HubException)
         {
             await Clients.Caller.SendAsync("Error", $"Failed to send message: {ex.Message}");
         }

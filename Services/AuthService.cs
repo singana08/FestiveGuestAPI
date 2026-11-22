@@ -179,7 +179,7 @@ public class AuthService : IAuthService
 
         if (user.Status != "Active")
         {
-            return new AuthResponse { Success = false, Message = "Account is not active." };
+            return new AuthResponse { Success = false, Message = InactiveMessage };
         }
 
         return new AuthResponse
@@ -190,6 +190,8 @@ public class AuthService : IAuthService
             Token = GenerateToken(user.RowKey, user.Name, user.Email, user.UserType)
         };
     }
+
+    private const string InactiveMessage = "This account isn't active. If you think this is a mistake, email customer-support@festiveguest.com.";
 
     public async Task<AuthResponse> LoginWithPhoneAsync(PhoneLoginRequest request)
     {
@@ -208,7 +210,7 @@ public class AuthService : IAuthService
 
         if (user.Status != "Active")
         {
-            return new AuthResponse { Success = false, Message = "Account is not active." };
+            return new AuthResponse { Success = false, Message = InactiveMessage };
         }
 
         return new AuthResponse
@@ -276,7 +278,7 @@ public class AuthService : IAuthService
                 return new AuthResponse { Success = false, Message = "No account found with this Google account. Please register first." };
 
             if (existing.Status != "Active")
-                return new AuthResponse { Success = false, Message = "Account is not active." };
+                return new AuthResponse { Success = false, Message = InactiveMessage };
 
             return new AuthResponse
             {

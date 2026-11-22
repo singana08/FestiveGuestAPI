@@ -14,6 +14,10 @@ public interface ISafetyRepository
     Task BlockAsync(UserBlockEntity block);
     Task UnblockAsync(string blockerId, string blockedId);
     Task AddReportAsync(UserReportEntity report);
+    /// <summary>All reports, newest first.</summary>
+    Task<List<UserReportEntity>> GetReportsAsync();
+    /// <summary>False when the report doesn't exist.</summary>
+    Task<bool> SetReportStatusAsync(string reportId, string status);
 }
 
 public class SafetyRepository : ISafetyRepository
@@ -63,4 +67,21 @@ public class SafetyRepository : ISafetyRepository
     }
 
     public Task AddReportAsync(UserReportEntity report) => _reports.AddEntityAsync(report);
+
+    public async Task<List<UserReportEntity>> GetReportsAsync()
+    {
+        var list = new List<UserReportEntity>();
+        await foreach (var r in _reports.QueryAsync<UserReportEntity>(TableClient.CreateQueryFilter($"PartitionKey eq {"Report"}")))
+            list.Add(r);
+        return list.OrderByDescending(r => r.CreatedAt).ToList();
+    }
+
+    public async Task<bool> SetReportStatusAsync(string reportId, string status)
+    {
+        var found = await _reports.GetEntityIfExistsAsync<UserReportEntity>("Report", reportId);
+        if (!found.HasValue || found.Value == null) return false;
+        found.Value.Status = status;
+        await _reports.UpdateEntityAsync(found.Value, found.Value.ETag, TableUpdateMode.Replace);
+        return true;
+    }
 }
