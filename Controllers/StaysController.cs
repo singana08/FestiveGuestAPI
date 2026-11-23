@@ -38,6 +38,41 @@ public class StaysController : ControllerBase
     [HttpGet("mine")]
     public async Task<IActionResult> Mine() => Me is { } me ? Ok(await _stays.MineAsync(me)) : Unauthorized();
 
+    /// <summary>
+    /// "My trips" (travellers) / "My guests" (hosts): open and confirmed stays with the other person's
+    /// name, city and photo, the host's gallery cover, nights, and whether I've reviewed them yet.
+    /// </summary>
+    [HttpGet("trips")]
+    public async Task<IActionResult> Trips([FromServices] IUserRepository users, [FromServices] IGalleryService gallery,
+        [FromServices] IFileUploadService files, [FromServices] IReviewService reviews)
+    {
+        if (Me is not { } me) return Unauthorized();
+        var reviewed = await reviews.ReviewedByAsync(me);
+        var people = new Dictionary<string, UserEntity?>();
+        var trips = new List<object>();
+        foreach (var s in (await _stays.MineAsync(me)).Where(s => s.Status is StayService.Pending or StayService.Confirmed))
+        {
+            var otherId = s.RequesterId == me ? s.PartnerId : s.RequesterId;
+            if (!people.TryGetValue(otherId, out var other)) people[otherId] = other = await users.GetUserByIdAsync(otherId);
+            trips.Add(new
+            {
+                stay = s,
+                other = new
+                {
+                    id = otherId,
+                    name = other?.Name ?? (s.RequesterId == me ? s.PartnerName : s.RequesterName),
+                    userType = other?.UserType ?? "",
+                    location = other?.Location ?? "",
+                    photoUrl = MemberPhotos.Profile(other, files),
+                    coverUrl = MemberPhotos.Cover(other, gallery),
+                },
+                nights = Math.Max(0, (s.EndDate.Date - s.StartDate.Date).Days),
+                reviewed = reviewed.Contains(otherId),
+            });
+        }
+        return Ok(trips);
+    }
+
     [HttpGet("with/{otherUserId}")]
     public async Task<IActionResult> With(string otherUserId) => Me is { } me ? Ok(await _stays.BetweenAsync(me, otherUserId)) : Unauthorized();
 

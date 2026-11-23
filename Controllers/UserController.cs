@@ -213,6 +213,16 @@ public class UserController : ControllerBase
         var reviews = await services.GetRequiredService<IReviewService>().VisibleAboutAsync(user.RowKey);
         var badges = await services.GetRequiredService<IMemberStats>().ResponseBadgesAsync();
 
+        // "Their posts": what the member has up right now — a host's listings, a traveller's trip requests.
+        IEnumerable<object> posts = user.UserType switch
+        {
+            "Host" => (await services.GetRequiredService<IHostPostRepository>().GetByUserIdAsync(user.RowKey))
+                .Where(p => p.Status == "Active").OrderByDescending(p => p.CreatedAt).Take(10),
+            "Guest" => (await services.GetRequiredService<IGuestPostRepository>().GetByUserIdAsync(user.RowKey))
+                .Where(p => p.Status == "Active").OrderByDescending(p => p.CreatedAt).Take(10).Select(GuestPostsController.ToResponse),
+            _ => Array.Empty<object>(),
+        };
+
         return new
         {
             id = user.RowKey,
@@ -232,6 +242,7 @@ public class UserController : ControllerBase
             gallery = user.UserType == "Host" ? services.GetRequiredService<IGalleryService>().View(user) : new List<GalleryPhotoView>(),
             responseBadge = badges.GetValueOrDefault(user.RowKey),
             confirmedStays = (await services.GetRequiredService<IStayService>().CompletedCountsAsync()).GetValueOrDefault(user.RowKey),
+            posts = posts.ToList(),
         };
     }
 

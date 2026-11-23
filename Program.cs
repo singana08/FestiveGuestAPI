@@ -157,7 +157,7 @@ builder.Services.AddScoped<IGalleryService, GalleryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IStayService, StayService>();
 builder.Services.AddSingleton<IMemberStats, MemberStats>();
-builder.Services.AddHostedService<FestiveGuestAPI.BackgroundServices.ReviewReminderService>();
+builder.Services.AddHostedService<FestiveGuestAPI.BackgroundServices.StayReminderService>();
 builder.Services.AddHostedService<FestiveGuestAPI.BackgroundServices.OTPCleanupService>();
 builder.Services.AddSignalR();
 builder.Services.AddMemoryCache();

@@ -27,4 +27,6 @@ public class StayEntity : ITableEntity
     public DateTime CreatedAt { get; set; }
     public DateTime? RespondedAt { get; set; }
     public DateTime? ReminderSentAt { get; set; }           // "how was your stay?" email, sent once after it ends
+    public DateTime? StartReminderSentAt { get; set; }      // "your stay starts tomorrow" email, sent once
+    public string Note { get; set; } = string.Empty;        // what the requester wrote (arrival time, people…)
 }

@@ -27,6 +27,7 @@ public interface IReviewService
     Task<IReadOnlyDictionary<string, (double Average, int Count)>> SummariesAsync();
     Task<(List<ReviewView> About, List<ReviewView> By)> AllForAdminAsync(string userId);
     Task<bool> DeleteAsync(string revieweeId, string reviewId);
+    Task<HashSet<string>> ReviewedByAsync(string reviewerId);
 }
 
 public class ReviewService : IReviewService
@@ -74,6 +75,10 @@ public class ReviewService : IReviewService
 
     private Task<List<ReviewEntity>> AboutAsync(string userId) => AllAsync(Reviews.QueryAsync<ReviewEntity>(r => r.PartitionKey == userId));
     private Task<List<ReviewEntity>> ByAsync(string userId) => AllAsync(Reviews.QueryAsync<ReviewEntity>(r => r.ReviewerId == userId));
+
+    /// <summary>Members this person has reviewed (for "Reviewed ✓" on their trips).</summary>
+    public async Task<HashSet<string>> ReviewedByAsync(string reviewerId) =>
+        (await ByAsync(reviewerId)).Where(FromAStay).Select(r => r.PartitionKey).ToHashSet();
 
     private async Task<ReviewEntity?> FindAsync(string revieweeId, string reviewerId) =>
         (await AllAsync(Reviews.QueryAsync<ReviewEntity>(r => r.PartitionKey == revieweeId && r.ReviewerId == reviewerId))).FirstOrDefault();

@@ -60,7 +60,8 @@ namespace FestiveGuestAPI.Controllers
 
         // Shared response shape. The poster's email is deliberately left out —
         // posts are visible to other members, and no client uses it.
-        private static object ToResponse(GuestPostEntity p) => new
+        /// <summary>A trip post as the website reads it (also used for "Their posts" on profiles).</summary>
+        public static object ToResponse(GuestPostEntity p) => new
         {
             rowKey = p.RowKey,
             userId = p.UserId,

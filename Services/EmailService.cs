@@ -25,6 +25,7 @@ public interface IEmailService
     Task SendStayRequestAsync(string email, string name, string fromName, string kind, string dates);
     Task SendStayConfirmedAsync(string email, string name, string otherName, string kind, string dates);
     Task SendReviewReminderAsync(string email, string name, string otherName, string kind, string otherProfileUrl);
+    Task SendStayTomorrowAsync(string email, string name, string otherName, string kind, string dates, bool forHost, string note, string link);
 }
 
 public class EmailService : IEmailService
@@ -389,6 +390,32 @@ public class EmailService : IEmailService
             <p style=""font-size: 13px; color: #555;"">Your review stays hidden until {E(otherName)} reviews you too, or for 14 days, so neither of you sees the other’s first.</p>
             {Button("Write a review", otherProfileUrl)}";
         await SendEmailAsync(email, $"How was your {What(kind)} with {otherName}? - Festive Guest", CreateEmailTemplate("Leave a review", content));
+    }
+
+    public async Task SendStayTomorrowAsync(string email, string name, string otherName, string kind, string dates, bool forHost, string note, string link)
+    {
+        string E(string v) => WebUtility.HtmlEncode(v);
+        var noteLine = string.IsNullOrWhiteSpace(note) ? "" : $@"<p style=""margin: 5px 0 0 0;"">📝 “{E(note)}”</p>";
+        var content = forHost
+            ? $@"
+                <p>Hi <strong>{E(name)}</strong>,</p>
+                <p><strong>{E(otherName)}</strong> arrives tomorrow for the {What(kind)} you confirmed.</p>
+                <div class=""security-note""><p style=""margin: 0;"">📅 <strong>{E(dates)}</strong></p>{noteLine}</div>
+                <p>Message them in FestiveGuest to agree the arrival time and where to meet.</p>
+                {Button("Open chats", link)}"
+            : $@"
+                <p>Hi <strong>{E(name)}</strong>,</p>
+                <p>Your {What(kind)} with <strong>{E(otherName)}</strong> starts tomorrow.</p>
+                <div class=""security-note""><p style=""margin: 0;"">📅 <strong>{E(dates)}</strong></p></div>
+                <p><strong>Before you go:</strong></p>
+                <ul>
+                    <li>Share your plans with family. Use “Share my stay” on {E(otherName)}’s profile.</li>
+                    <li>Meet in a public place first if you haven’t met before.</li>
+                    <li>Never pay in advance outside FestiveGuest, and never share OTPs.</li>
+                </ul>
+                {Button("Open your trip", link)}";
+        var subject = forHost ? $"{otherName} arrives tomorrow - Festive Guest" : $"Your {What(kind)} with {otherName} starts tomorrow - Festive Guest";
+        await SendEmailAsync(email, subject, CreateEmailTemplate(forHost ? "Your guest arrives tomorrow" : "Your trip starts tomorrow", content));
     }
 
     private async Task SendEmailAsync(string toEmail, string subject, string body, string? replyTo = null)

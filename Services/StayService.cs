@@ -6,7 +6,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace FestiveGuestAPI.Services;
 
 public record StayView(string Id, string Kind, string Status, DateTime StartDate, DateTime EndDate,
-    string RequesterId, string RequesterName, string PartnerId, string PartnerName, string HostId, string GuestId, bool Ended);
+    string RequesterId, string RequesterName, string PartnerId, string PartnerName, string HostId, string GuestId, bool Ended, string Note = "");
 
 /// <summary>What the review rules need to know about two members' stays: the latest ended one, or when the next one ends.</summary>
 public record StayGate(bool Ended, DateTime? EndsOn, string? StayId = null);
@@ -27,6 +27,8 @@ public interface IStayService
     Task<IReadOnlyDictionary<string, int>> CompletedCountsAsync();
     Task<List<StayEntity>> DueForReminderAsync();
     Task MarkRemindedAsync(StayEntity stay);
+    Task<List<StayEntity>> DueForStartReminderAsync();
+    Task MarkStartRemindedAsync(StayEntity stay);
 }
 
 public class StayService : IStayService
@@ -79,7 +81,7 @@ public class StayService : IStayService
 
     public static StayView View(StayEntity s) =>
         new(s.RowKey, s.Kind, s.Status, s.StartDate, s.EndDate, s.RequesterId, s.RequesterName, s.PartnerId, s.PartnerName, s.HostId, s.GuestId,
-            s.Status == Confirmed && s.EndDate.Date <= Today);
+            s.Status == Confirmed && s.EndDate.Date <= Today, s.Note ?? "");
 
     private static async Task<List<StayEntity>> AllAsync(AsyncPageable<StayEntity> query)
     {
@@ -136,6 +138,7 @@ public class StayService : IStayService
             Kind = kind == "meetup" ? "meetup" : "stay",
             StartDate = start, EndDate = end,
             Status = Pending, CreatedAt = DateTime.UtcNow,
+            Note = (note ?? "").Trim(),
         };
         await Stays.CreateIfNotExistsAsync();
         await SaveAsync(stay);
@@ -222,6 +225,17 @@ public class StayService : IStayService
     public async Task MarkRemindedAsync(StayEntity stay)
     {
         stay.ReminderSentAt = DateTime.UtcNow;
+        await SaveAsync(stay);
+    }
+
+    /// <summary>Confirmed stays starting tomorrow (or today, if confirmed late) that haven't had their "starts tomorrow" email.</summary>
+    public async Task<List<StayEntity>> DueForStartReminderAsync() =>
+        (await AllAsync(Stays.QueryAsync<StayEntity>(s => s.PartitionKey == "STAY" && s.Status == Confirmed)))
+            .Where(s => s.StartDate.Date >= Today && s.StartDate.Date <= Today.AddDays(1) && s.StartReminderSentAt == null).ToList();
+
+    public async Task MarkStartRemindedAsync(StayEntity stay)
+    {
+        stay.StartReminderSentAt = DateTime.UtcNow;
         await SaveAsync(stay);
     }
 }
