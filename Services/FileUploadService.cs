@@ -16,6 +16,9 @@ public interface IFileUploadService
     Task<bool> DeleteProfileImageAsync(string fileName);
     string GenerateReadSasUrl(string fileName, string containerName = "logos");
     bool IsOwnProfileImage(string url, string userId);
+    Task<string> GenerateUploadUrlAsync(string containerName, string blobName);
+    Task<bool> BlobExistsAsync(string containerName, string blobName);
+    Task DeleteBlobAsync(string containerName, string blobName);
 }
 
 public class FileUploadService : IFileUploadService
@@ -46,6 +49,28 @@ public class FileUploadService : IFileUploadService
     }
 
     public bool IsOwnProfileImage(string url, string userId) => IsProfileImageOf(url, _accountName, userId);
+
+    /// <summary>A 15-minute link the browser can PUT one named blob to (nothing else in the container).</summary>
+    public async Task<string> GenerateUploadUrlAsync(string containerName, string blobName)
+    {
+        await _blobServiceClient.GetBlobContainerClient(containerName).CreateIfNotExistsAsync(PublicAccessType.None);
+        var sas = new BlobSasBuilder
+        {
+            BlobContainerName = containerName,
+            BlobName = blobName,
+            Resource = "b",
+            StartsOn = DateTimeOffset.UtcNow.AddMinutes(-5),
+            ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(15),
+        };
+        sas.SetPermissions(BlobSasPermissions.Create | BlobSasPermissions.Write);
+        return $"https://{_accountName}.blob.core.windows.net/{containerName}/{blobName}?{sas.ToSasQueryParameters(_credential)}";
+    }
+
+    public async Task<bool> BlobExistsAsync(string containerName, string blobName) =>
+        (await _blobServiceClient.GetBlobContainerClient(containerName).GetBlobClient(blobName).ExistsAsync()).Value;
+
+    public async Task DeleteBlobAsync(string containerName, string blobName) =>
+        await _blobServiceClient.GetBlobContainerClient(containerName).GetBlobClient(blobName).DeleteIfExistsAsync();
 
     /// <summary>
     /// True only for a photo this member uploaded through the upload SAS:

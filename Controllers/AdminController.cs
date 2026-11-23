@@ -69,6 +69,30 @@ public class AdminController : ControllerBase
         return Ok(new { phone = user.Phone ?? "", isVerified = user.IsVerified });
     }
 
+    /// <summary>Reviews about and by a member, including ones still hidden — for handling reports.</summary>
+    [HttpGet("users/{userId}/reviews")]
+    public async Task<IActionResult> GetMemberReviews(string userId, [FromServices] IReviewService reviews)
+    {
+        var (about, by) = await reviews.AllForAdminAsync(userId);
+        return Ok(new { about, by });
+    }
+
+    [HttpDelete("reviews/{revieweeId}/{reviewId}")]
+    public async Task<IActionResult> DeleteReview(string revieweeId, string reviewId, [FromServices] IReviewService reviews)
+    {
+        if (!await reviews.DeleteAsync(revieweeId, reviewId)) return NotFound(new { message = "Review not found." });
+        _logger.LogInformation("Admin {AdminId} removed review {ReviewId} about member {UserId}", Me, reviewId, revieweeId);
+        return NoContent();
+    }
+
+    [HttpDelete("users/{userId}/gallery/{photoId}")]
+    public async Task<IActionResult> RemovePhoto(string userId, string photoId, [FromServices] IGalleryService gallery)
+    {
+        if (!await gallery.RemoveAsync(userId, photoId)) return NotFound(new { message = "Photo not found." });
+        _logger.LogInformation("Admin {AdminId} removed gallery photo {PhotoId} of member {UserId}", Me, photoId, userId);
+        return NoContent();
+    }
+
     /// <summary>Suspend a member (can't sign in, posts hidden, can't message) or reactivate them.</summary>
     [HttpPost("users/{userId}/status")]
     public async Task<IActionResult> SetUserStatus(string userId, [FromBody] StatusRequest request)

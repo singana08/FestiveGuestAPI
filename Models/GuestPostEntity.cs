@@ -37,6 +37,8 @@ namespace FestiveGuestAPI.Models
         // Filled in per request (poster's phone verified); not stored.
         [IgnoreDataMember]
         public bool UserVerified { get; set; }
+        [IgnoreDataMember]
+        public PosterInfo? Poster { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 

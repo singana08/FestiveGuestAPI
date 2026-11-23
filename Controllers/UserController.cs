@@ -167,55 +167,7 @@ public class UserController : ControllerBase
     public async Task<IActionResult> GetPublicProfile([FromBody] PublicProfileRequest request)
     {
         var user = await _userRepository.GetUserByIdAsync(request.UserId);
-        if (user == null)
-            return NotFound("User not found");
-
-        string profileImageUrl = user.ProfileImageUrl;
-        if (!string.IsNullOrEmpty(profileImageUrl))
-        {
-            try
-            {
-                var uri = new Uri(profileImageUrl);
-                var fileName = Path.GetFileName(uri.LocalPath);
-                profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
-            }
-            catch { }
-        }
-
-        // Parse hosting areas
-        List<HostingAreaDto>? hostingAreas = null;
-        if (!string.IsNullOrEmpty(user.HostingAreas))
-        {
-            try
-            {
-                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas, options);
-                hostingAreas = hostingAreas?.Where(h => !string.IsNullOrEmpty(h.State) || h.Cities.Any()).ToList();
-                if (hostingAreas?.Count == 0) hostingAreas = null;
-            }
-            catch { }
-        }
-
-        // Get reviews and calculate ratings
-        var reviewData = await GetReviewsData(request.UserId);
-
-        return Ok(new
-        {
-            id = user.RowKey,
-            userId = user.RowKey,
-            name = user.Name,
-            isVerified = user.IsVerified, // email deliberately not shared
-            userType = user.UserType,
-            location = user.Location,
-            bio = user.Bio,
-            profileImageUrl,
-            hostingAreas,
-            createdAt = user.CreatedDate,
-            status = user.Status,
-            averageRating = reviewData.AverageRating,
-            totalReviews = reviewData.TotalReviews,
-            reviews = reviewData.Reviews
-        });
+        return user == null ? NotFound("User not found") : Ok(await PublicProfileOf(user));
     }
 
     /// <summary>Profile links carry the member's name; older links swapped spaces for hyphens, so try both (exact first, for names like Mary-Ann).</summary>
@@ -230,45 +182,43 @@ public class UserController : ControllerBase
     public async Task<IActionResult> GetPublicProfileByName(string userName)
     {
         var user = await FindByProfileName(userName);
+        return user == null ? NotFound("User not found") : Ok(await PublicProfileOf(user));
+    }
 
-        if (user == null)
-            return NotFound("User not found");
+    /// <summary>What other members see on a profile — never the email or phone number.</summary>
+    private async Task<object> PublicProfileOf(UserEntity user)
+    {
+        var services = HttpContext.RequestServices;
 
         string profileImageUrl = user.ProfileImageUrl;
         if (!string.IsNullOrEmpty(profileImageUrl))
         {
-            try
-            {
-                var uri = new Uri(profileImageUrl);
-                var fileName = Path.GetFileName(uri.LocalPath);
-                profileImageUrl = _fileUploadService.GenerateReadSasUrl(fileName, "profile-images");
-            }
+            try { profileImageUrl = _fileUploadService.GenerateReadSasUrl(Path.GetFileName(new Uri(profileImageUrl).LocalPath), "profile-images"); }
             catch { }
         }
 
-        // Parse hosting areas
         List<HostingAreaDto>? hostingAreas = null;
         if (!string.IsNullOrEmpty(user.HostingAreas))
         {
             try
             {
-                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                hostingAreas = System.Text.Json.JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas, options);
-                hostingAreas = hostingAreas?.Where(h => !string.IsNullOrEmpty(h.State) || h.Cities.Any()).ToList();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                hostingAreas = JsonSerializer.Deserialize<List<HostingAreaDto>>(user.HostingAreas, options)?
+                    .Where(h => !string.IsNullOrEmpty(h.State) || h.Cities.Any()).ToList();
                 if (hostingAreas?.Count == 0) hostingAreas = null;
             }
             catch { }
         }
 
-        // Get reviews and calculate ratings
-        var reviewData = await GetReviewsData(user.RowKey);
+        var reviews = await services.GetRequiredService<IReviewService>().VisibleAboutAsync(user.RowKey);
+        var badges = await services.GetRequiredService<IMemberStats>().ResponseBadgesAsync();
 
-        return Ok(new
+        return new
         {
             id = user.RowKey,
             userId = user.RowKey,
             name = user.Name,
-            isVerified = user.IsVerified, // email deliberately not shared
+            isVerified = user.IsVerified, // email and phone deliberately not shared
             userType = user.UserType,
             location = user.Location,
             bio = user.Bio,
@@ -276,105 +226,26 @@ public class UserController : ControllerBase
             hostingAreas,
             createdAt = user.CreatedDate,
             status = user.Status,
-            averageRating = reviewData.AverageRating,
-            totalReviews = reviewData.TotalReviews,
-            reviews = reviewData.Reviews
-        });
-    }
-
-    private async Task<(double AverageRating, int TotalReviews, List<object> Reviews)> GetReviewsData(string userId)
-    {
-        try
-        {
-            var tableClient = _tableServiceClient.GetTableClient("Reviews");
-            var reviews = tableClient.QueryAsync<ReviewEntity>(r => r.PartitionKey == userId);
-            
-            var reviewList = new List<object>();
-            var ratings = new List<int>();
-
-            await foreach (var review in reviews)
-            {
-                reviewList.Add(new
-                {
-                    reviewerId = review.ReviewerId,
-                    reviewerName = review.ReviewerName,
-                    rating = review.Rating,
-                    comment = review.Comment,
-                    createdAt = review.CreatedAt
-                });
-                ratings.Add(review.Rating);
-            }
-
-            var averageRating = ratings.Count > 0 ? Math.Round(ratings.Average(), 1) : 0;
-            return (averageRating, ratings.Count, reviewList);
-        }
-        catch
-        {
-            return (0, 0, new List<object>());
-        }
+            averageRating = reviews.Count > 0 ? Math.Round(reviews.Average(r => r.Rating), 1) : 0,
+            totalReviews = reviews.Count,
+            reviews, // published only (see ReviewService)
+            gallery = user.UserType == "Host" ? services.GetRequiredService<IGalleryService>().View(user) : new List<GalleryPhotoView>(),
+            responseBadge = badges.GetValueOrDefault(user.RowKey),
+            confirmedStays = (await services.GetRequiredService<IStayService>().CompletedCountsAsync()).GetValueOrDefault(user.RowKey),
+        };
     }
 
     [HttpGet("reviews/{userId}")]
-    public async Task<IActionResult> GetUserReviews(string userId)
-    {
-        try
-        {
-            var tableClient = _tableServiceClient.GetTableClient("Reviews");
-            var reviews = tableClient.QueryAsync<ReviewEntity>(r => r.PartitionKey == userId);
-            
-            var reviewList = new List<object>();
-            await foreach (var review in reviews)
-            {
-                reviewList.Add(new
-                {
-                    reviewerId = review.ReviewerId,
-                    reviewerName = review.ReviewerName,
-                    rating = review.Rating,
-                    comment = review.Comment,
-                    createdAt = review.CreatedAt
-                });
-            }
-
-            return Ok(reviewList);
-        }
-        catch
-        {
-            return Ok(new List<object>());
-        }
-    }
+    public async Task<IActionResult> GetUserReviews(string userId) =>
+        Ok(await HttpContext.RequestServices.GetRequiredService<IReviewService>().VisibleAboutAsync(userId));
 
     [HttpGet("reviews-by-name/{userName}")]
     public async Task<IActionResult> GetUserReviewsByName(string userName)
     {
-        try
-        {
-            var user = await FindByProfileName(userName);
-
-            if (user == null)
-                return Ok(new List<object>());
-
-            var tableClient = _tableServiceClient.GetTableClient("Reviews");
-            var reviews = tableClient.QueryAsync<ReviewEntity>(r => r.PartitionKey == user.RowKey);
-            
-            var reviewList = new List<object>();
-            await foreach (var review in reviews)
-            {
-                reviewList.Add(new
-                {
-                    reviewerId = review.ReviewerId,
-                    reviewerName = review.ReviewerName,
-                    rating = review.Rating,
-                    comment = review.Comment,
-                    createdAt = review.CreatedAt
-                });
-            }
-
-            return Ok(reviewList);
-        }
-        catch
-        {
-            return Ok(new List<object>());
-        }
+        var user = await FindByProfileName(userName);
+        return Ok(user == null
+            ? new List<ReviewView>()
+            : await HttpContext.RequestServices.GetRequiredService<IReviewService>().VisibleAboutAsync(user.RowKey));
     }
 
     [HttpGet("upload-sas-token")]

@@ -80,7 +80,8 @@ public class ChatHub : Hub
                 SenderName = user.Name,
                 ReceiverId = otherUserId,
                 Message = message,
-                Status = "Sent"
+                Status = "Sent",
+                SentAt = DateTime.UtcNow
             };
 
             await messagesTable.AddEntityAsync(messageEntity);

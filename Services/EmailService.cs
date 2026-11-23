@@ -22,6 +22,9 @@ public interface IEmailService
     Task SendNewMessageEmailAsync(string email, string name, string senderName);
     Task SendFeedbackAsync(FeedbackEntity feedback);
     Task SendAccountStatusEmailAsync(string email, string name, bool suspended);
+    Task SendStayRequestAsync(string email, string name, string fromName, string kind, string dates);
+    Task SendStayConfirmedAsync(string email, string name, string otherName, string kind, string dates);
+    Task SendReviewReminderAsync(string email, string name, string otherName, string kind, string otherProfileUrl);
 }
 
 public class EmailService : IEmailService
@@ -346,6 +349,46 @@ public class EmailService : IEmailService
                     <a href=""{_secrets.AppBaseUrl}/login"" style=""background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;"">Sign in</a>
                 </p>");
         await SendEmailAsync(email, subject, CreateEmailTemplate(heading, content));
+    }
+
+    private string Button(string text, string url) =>
+        $@"<p style=""text-align: center;""><a href=""{url}"" style=""background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;"">{text}</a></p>";
+
+    private static string What(string kind) => kind == "meetup" ? "meet-up" : "stay";
+
+    public async Task SendStayRequestAsync(string email, string name, string fromName, string kind, string dates)
+    {
+        string E(string v) => WebUtility.HtmlEncode(v);
+        var content = $@"
+            <p>Hi <strong>{E(name)}</strong>,</p>
+            <p><strong>{E(fromName)}</strong> asked to confirm a {What(kind)} with you:</p>
+            <div class=""security-note""><p style=""margin: 0;"">📅 <strong>{E(dates)}</strong></p></div>
+            <p>Open your chat with {E(fromName)} to accept or decline. Once the {What(kind)} is over, you can both leave a review.</p>
+            {Button("Open chats", $"{_secrets.AppBaseUrl}/chats")}";
+        await SendEmailAsync(email, $"{fromName} wants to confirm a {What(kind)} - Festive Guest", CreateEmailTemplate($"Confirm your {What(kind)}?", content));
+    }
+
+    public async Task SendStayConfirmedAsync(string email, string name, string otherName, string kind, string dates)
+    {
+        string E(string v) => WebUtility.HtmlEncode(v);
+        var content = $@"
+            <p>Hi <strong>{E(name)}</strong>,</p>
+            <p><strong>{E(otherName)}</strong> confirmed your {What(kind)}:</p>
+            <div class=""security-note""><p style=""margin: 0;"">📅 <strong>{E(dates)}</strong></p></div>
+            <p style=""font-size: 13px; color: #555;"">Stay safe: share your plans with family (use “Share my stay” on their profile), meet in a public place first, and never pay in advance outside FestiveGuest.</p>
+            {Button("Open chats", $"{_secrets.AppBaseUrl}/chats")}";
+        await SendEmailAsync(email, $"{otherName} confirmed your {What(kind)} - Festive Guest", CreateEmailTemplate($"Your {What(kind)} is confirmed", content));
+    }
+
+    public async Task SendReviewReminderAsync(string email, string name, string otherName, string kind, string otherProfileUrl)
+    {
+        string E(string v) => WebUtility.HtmlEncode(v);
+        var content = $@"
+            <p>Hi <strong>{E(name)}</strong>,</p>
+            <p>How was your {What(kind)} with <strong>{E(otherName)}</strong>? A few honest words help other members choose who to stay with.</p>
+            <p style=""font-size: 13px; color: #555;"">Your review stays hidden until {E(otherName)} reviews you too, or for 14 days, so neither of you sees the other’s first.</p>
+            {Button("Write a review", otherProfileUrl)}";
+        await SendEmailAsync(email, $"How was your {What(kind)} with {otherName}? - Festive Guest", CreateEmailTemplate("Leave a review", content));
     }
 
     private async Task SendEmailAsync(string toEmail, string subject, string body, string? replyTo = null)

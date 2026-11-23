@@ -103,7 +103,8 @@ public class ChatController : ControllerBase
                 SenderName = user.Name,
                 ReceiverId = recipientId,
                 Message = request.Message,
-                Status = "Sent"
+                Status = "Sent",
+                SentAt = DateTime.UtcNow
             };
 
             await messagesTable.AddEntityAsync(messageEntity);

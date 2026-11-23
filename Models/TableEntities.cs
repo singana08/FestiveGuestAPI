@@ -28,6 +28,7 @@ public class UserEntity : ITableEntity
     public string HostingAreas { get; set; } = string.Empty; // JSON string for hosting areas
     public int ReferralPoints { get; set; } = 0;
     public string NotificationPreferences { get; set; } = "{\"email\":true,\"push\":false}"; // JSON string
+    public string Gallery { get; set; } = string.Empty; // JSON [{ id, caption }], cover first (see Services/Gallery.cs)
 }
 
 // OTPs table
@@ -100,6 +101,8 @@ public class ChatMessageEntity : ITableEntity
     public string Status { get; set; } = "Sent";
     public DateTime? DeliveredAt { get; set; }
     public DateTime? ReadAt { get; set; }
+    // Set once when sent. (Timestamp is last-modified, so it moves when a message is marked read.)
+    public DateTime? SentAt { get; set; }
 }
 
 // Payments table
@@ -149,6 +152,11 @@ public class ReviewEntity : ITableEntity
     public int Rating { get; set; }
     public string Comment { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public string ReviewerRole { get; set; } = string.Empty; // Host or Guest, when it was written
+    public string Reply { get; set; } = string.Empty;        // one public reply by the person reviewed
+    public DateTime? RepliedAt { get; set; }
+    // The confirmed stay this review is about. Reviews from before "Confirm stay" have none and stay hidden.
+    public string StayId { get; set; } = string.Empty;
 }
 
 // Subscriptions table
