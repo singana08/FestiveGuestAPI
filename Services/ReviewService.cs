@@ -98,7 +98,7 @@ public class ReviewService : IReviewService
         if (!gate.Ended)
             return new(false, gate.EndsOn is { } endsOn
                 ? $"You can review {FirstName(reviewee.Name)} after your stay ends on {StayService.Dates(endsOn, endsOn)}."
-                : $"You can review {FirstName(reviewee.Name)} after a stay or meet-up you've both confirmed. Use “Confirm stay” in your chat.",
+                : $"You can review {FirstName(reviewee.Name)} after a stay or meet-up you've both confirmed. Request one from your chat.",
                 mineView, theyReviewedYou);
         return new(true, null, mineView, theyReviewedYou);
     }

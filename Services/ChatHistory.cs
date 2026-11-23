@@ -25,6 +25,28 @@ public static class ChatHistory
         return false;
     }
 
+    /// <summary>Adds a message to two members' chat (e.g. a stay request), exactly as if it had been sent from the chat.</summary>
+    public static async Task<ChatMessageEntity> PostAsync(TableServiceClient tables, string fromId, string fromName, string toId, string text)
+    {
+        var messages = tables.GetTableClient("ChatMessages");
+        await messages.CreateIfNotExistsAsync();
+        var message = new ChatMessageEntity
+        {
+            PartitionKey = Room(fromId, toId), RowKey = Guid.NewGuid().ToString(),
+            SenderId = fromId, SenderName = fromName, ReceiverId = toId,
+            Message = text, Status = "Sent", SentAt = DateTime.UtcNow,
+        };
+        await messages.AddEntityAsync(message);
+        return message;
+    }
+
+    /// <summary>The shape the chat sends over SignalR ("ReceiveMessage").</summary>
+    public static object Payload(ChatMessageEntity m) => new
+    {
+        id = m.RowKey, senderId = m.SenderId, senderName = m.SenderName, receiverId = m.ReceiverId,
+        message = m.Message, timestamp = m.SentAt ?? DateTime.UtcNow, status = m.Status,
+    };
+
     public static async Task<bool> HaveBothMessagedAsync(TableServiceClient tables, string a, string b)
     {
         var messages = tables.GetTableClient("ChatMessages");

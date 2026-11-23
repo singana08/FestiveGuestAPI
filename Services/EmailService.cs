@@ -361,11 +361,11 @@ public class EmailService : IEmailService
         string E(string v) => WebUtility.HtmlEncode(v);
         var content = $@"
             <p>Hi <strong>{E(name)}</strong>,</p>
-            <p><strong>{E(fromName)}</strong> asked to confirm a {What(kind)} with you:</p>
+            <p><strong>{E(fromName)}</strong> sent you a {What(kind)} request:</p>
             <div class=""security-note""><p style=""margin: 0;"">📅 <strong>{E(dates)}</strong></p></div>
-            <p>Open your chat with {E(fromName)} to accept or decline. Once the {What(kind)} is over, you can both leave a review.</p>
+            <p>Reply in your chat with {E(fromName)}, and confirm or decline it there when you’re ready. Once the {What(kind)} is over, you can both leave a review.</p>
             {Button("Open chats", $"{_secrets.AppBaseUrl}/chats")}";
-        await SendEmailAsync(email, $"{fromName} wants to confirm a {What(kind)} - Festive Guest", CreateEmailTemplate($"Confirm your {What(kind)}?", content));
+        await SendEmailAsync(email, $"{fromName} sent you a {What(kind)} request - Festive Guest", CreateEmailTemplate($"New {What(kind)} request", content));
     }
 
     public async Task SendStayConfirmedAsync(string email, string name, string otherName, string kind, string dates)
