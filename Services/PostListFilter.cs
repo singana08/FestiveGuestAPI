@@ -43,6 +43,8 @@ public static class PostListFilter
                 ReviewCount = rating.Count,
                 ResponseBadge = badges.GetValueOrDefault(owner),
                 Stays = stays.GetValueOrDefault(owner),
+                VerifiedHow = user?.AdminVerified == true ? user.AdminVerifiedHow : null,
+                VerifiedSince = user?.AdminVerified == true ? user.AdminVerifiedAt : null,
             });
         }
         return visible;

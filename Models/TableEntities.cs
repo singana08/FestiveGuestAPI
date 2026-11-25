@@ -29,6 +29,31 @@ public class UserEntity : ITableEntity
     public int ReferralPoints { get; set; } = 0;
     public string NotificationPreferences { get; set; } = "{\"email\":true,\"push\":false}"; // JSON string
     public string Gallery { get; set; } = string.Empty; // JSON [{ id, caption }], cover first (see Services/Gallery.cs)
+
+    // Set while Status is Suspended, cleared on reactivation. Only admins see these.
+    public string SuspendedReason { get; set; } = string.Empty; // a ReportReasons key
+    public string SuspendedNote { get; set; } = string.Empty;   // the admin's private note
+    public DateTime? SuspendedAt { get; set; }
+    public string SuspendedBy { get; set; } = string.Empty;     // admin userId
+
+    // "Verified by FestiveGuest": an admin checked who this member is (stronger than IsVerified, the phone).
+    // Members see that it's verified, how and since when; the note and who did it are admin-only.
+    public bool AdminVerified { get; set; }
+    public string AdminVerifiedHow { get; set; } = string.Empty; // an AdminVerification.Methods key
+    public DateTime? AdminVerifiedAt { get; set; }
+    public string AdminVerifiedBy { get; set; } = string.Empty;
+    public string AdminVerifiedNote { get; set; } = string.Empty;
+}
+
+/// <summary>How an admin checked a member before marking them "Verified by FestiveGuest".</summary>
+public static class AdminVerification
+{
+    public static readonly IReadOnlyDictionary<string, string> Methods = new Dictionary<string, string>
+    {
+        ["id"] = "ID checked",
+        ["video"] = "Video call",
+        ["in_person"] = "Met in person",
+    };
 }
 
 // OTPs table

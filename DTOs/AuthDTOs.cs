@@ -128,6 +128,7 @@ public class UserDto
     public string Bio { get; set; } = string.Empty;
     public string ProfileImageUrl { get; set; } = string.Empty;
     public bool IsVerified { get; set; }
+    public bool AdminVerified { get; set; } // "Verified by FestiveGuest"
     public DateTime CreatedDate { get; set; }
     public string ReferralCode { get; set; } = string.Empty;
     public string ReferredBy { get; set; } = string.Empty;

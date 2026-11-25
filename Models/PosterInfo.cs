@@ -9,4 +9,6 @@ public class PosterInfo
     public int ReviewCount { get; set; }
     public string? ResponseBadge { get; set; }
     public int Stays { get; set; } // confirmed stays and meet-ups that have ended
+    public string? VerifiedHow { get; set; }     // "Verified by FestiveGuest": how the team checked them (null if not)
+    public DateTime? VerifiedSince { get; set; }
 }

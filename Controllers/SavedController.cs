@@ -64,7 +64,7 @@ public class SavedController : ControllerBase
             ratings.TryGetValue(host.RowKey, out var rating);
             hosts.Add(new
             {
-                id = host.RowKey, name = host.Name, location = host.Location, isVerified = host.IsVerified,
+                id = host.RowKey, name = host.Name, location = host.Location, isVerified = host.IsVerified, adminVerified = host.AdminVerified,
                 photoUrl = MemberPhotos.Profile(host, files), coverUrl = MemberPhotos.Cover(host, gallery),
                 rating = rating.Average, reviewCount = rating.Count, stays = stayCounts.GetValueOrDefault(host.RowKey),
                 activePosts = (await hostPosts.GetByUserIdAsync(host.RowKey)).Count(p => p.Status == "Active"),

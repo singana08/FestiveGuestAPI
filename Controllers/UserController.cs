@@ -151,6 +151,7 @@ public class UserController : ControllerBase
             Bio = user.Bio,
             ProfileImageUrl = profileImageUrl,
             IsVerified = user.IsVerified,
+            AdminVerified = user.AdminVerified,
             CreatedDate = user.CreatedDate,
             ReferralCode = user.ReferralCode,
             HostingAreas = hostingAreas,
@@ -229,6 +230,9 @@ public class UserController : ControllerBase
             userId = user.RowKey,
             name = user.Name,
             isVerified = user.IsVerified, // email and phone deliberately not shared
+            adminVerified = user.AdminVerified, // "Verified by FestiveGuest" — how and since when, never the note
+            verifiedHow = user.AdminVerified ? user.AdminVerifiedHow : null,
+            verifiedSince = user.AdminVerified ? user.AdminVerifiedAt : null,
             userType = user.UserType,
             location = user.Location,
             bio = user.Bio,

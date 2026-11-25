@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using FestiveGuestAPI.Services;
 using FestiveGuestAPI.Configuration;
+using FestiveGuestAPI.Models;
 
 namespace FestiveGuestAPI.Controllers;
 
@@ -48,7 +49,14 @@ public class AdminController : ControllerBase
             maskedPhone = PhoneMask.Apply(u.Phone),
             userType = u.UserType,
             status = u.Status,
+            suspendedReason = u.SuspendedReason,
+            suspendedNote = u.SuspendedNote,
+            suspendedAt = u.SuspendedAt,
             isVerified = u.IsVerified,
+            adminVerified = u.AdminVerified,
+            adminVerifiedHow = u.AdminVerifiedHow,
+            adminVerifiedAt = u.AdminVerifiedAt,
+            adminVerifiedNote = u.AdminVerifiedNote,
             location = u.Location,
             createdDate = u.CreatedDate,
             referralCode = u.ReferralCode,
@@ -106,20 +114,57 @@ public class AdminController : ControllerBase
         if (user.UserType.Equals("Admin", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { message = "Admin accounts can't be suspended here" });
 
+        var suspending = status == AccountStatus.Suspended;
+        var reason = request.Reason ?? "";
+        var note = (request.Note ?? "").Trim();
+        if (suspending && !ReportReasons.Labels.ContainsKey(reason))
+            return BadRequest(new { message = "Pick a reason for the suspension" });
+        if (note.Length > 500) return BadRequest(new { message = "Keep the note under 500 characters" });
+
         var changed = user.Status != status;
         user.Status = status;
+        // Why, when and by whom — for admins. Cleared on reactivation.
+        user.SuspendedReason = suspending ? reason : "";
+        user.SuspendedNote = suspending ? note : "";
+        user.SuspendedAt = suspending ? DateTime.UtcNow : null;
+        user.SuspendedBy = suspending ? Me ?? "" : "";
         await _userRepository.UpdateUserAsync(user);
         AccountStatus.Forget(HttpContext.RequestServices, userId);
+        _logger.LogInformation("Admin {AdminId} set member {UserId} to {Status} (reason: {Reason})", Me, userId, status, suspending ? reason : "-");
 
-        // Tell the member, so a suspension isn't an unexplained sign-out. Who reported them stays private.
-        // Not switchable in their profile: this is about their account, not a notification.
+        // Tell the member, so a suspension isn't an unexplained sign-out. They get the reason, never who reported
+        // them and never the admin's note. Not switchable in their profile: this is about their account.
         var emailed = false;
         if (changed && !string.IsNullOrEmpty(user.Email))
         {
-            try { await _email.SendAccountStatusEmailAsync(user.Email, user.Name, suspended: status == AccountStatus.Suspended); emailed = true; }
+            try { await _email.SendAccountStatusEmailAsync(user.Email, user.Name, suspending, suspending ? ReportReasons.Labels[reason] : null); emailed = true; }
             catch (Exception ex) { _logger.LogWarning(ex, "Couldn't email member {UserId} about their account status", userId); }
         }
         return Ok(new { success = true, status, emailed });
+    }
+
+    /// <summary>"Verified by FestiveGuest": mark a member as checked by the team (how is required), or take it away.</summary>
+    [HttpPost("users/{userId}/verify")]
+    public async Task<IActionResult> SetAdminVerified(string userId, [FromBody] VerifyRequest request)
+    {
+        if (userId == Me) return BadRequest(new { message = "Ask another admin to verify you" });
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null) return NotFound(new { message = "Member not found" });
+
+        var how = request.How ?? "";
+        var note = (request.Note ?? "").Trim();
+        if (request.Verified && !AdminVerification.Methods.ContainsKey(how))
+            return BadRequest(new { message = "Say how you checked them" });
+        if (note.Length > 500) return BadRequest(new { message = "Keep the note under 500 characters" });
+
+        user.AdminVerified = request.Verified;
+        user.AdminVerifiedHow = request.Verified ? how : "";
+        user.AdminVerifiedNote = request.Verified ? note : "";
+        user.AdminVerifiedAt = request.Verified ? DateTime.UtcNow : null;
+        user.AdminVerifiedBy = request.Verified ? Me ?? "" : "";
+        await _userRepository.UpdateUserAsync(user);
+        _logger.LogInformation("Admin {AdminId} set Verified by FestiveGuest to {Verified} for member {UserId} ({How})", Me, request.Verified, userId, request.Verified ? how : "-");
+        return Ok(new { success = true, adminVerified = user.AdminVerified, adminVerifiedHow = user.AdminVerifiedHow, adminVerifiedAt = user.AdminVerifiedAt });
     }
 
     [HttpGet("reports")]
@@ -158,4 +203,13 @@ public class AdminController : ControllerBase
 public class StatusRequest
 {
     public string? Status { get; set; }
+    public string? Reason { get; set; } // suspending a member: a ReportReasons key (required)
+    public string? Note { get; set; }   // suspending a member: a private note for admins (optional)
+}
+
+public class VerifyRequest
+{
+    public bool Verified { get; set; }
+    public string? How { get; set; }  // an AdminVerification.Methods key (required when verifying)
+    public string? Note { get; set; } // private, for admins
 }

@@ -547,6 +547,7 @@ public class AuthService : IAuthService
             Bio = user.Bio,
             ProfileImageUrl = user.ProfileImageUrl,
             IsVerified = user.IsVerified,
+            AdminVerified = user.AdminVerified,
             CreatedDate = user.CreatedDate,
             ReferralCode = user.ReferralCode,
             ReferredBy = user.ReferredBy,

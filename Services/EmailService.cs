@@ -21,7 +21,7 @@ public interface IEmailService
     Task SendSecurityAlertAsync(string email, string name, string what, string device);
     Task SendNewMessageEmailAsync(string email, string name, string senderName);
     Task SendFeedbackAsync(FeedbackEntity feedback);
-    Task SendAccountStatusEmailAsync(string email, string name, bool suspended);
+    Task SendAccountStatusEmailAsync(string email, string name, bool suspended, string? reason);
     Task SendStayRequestAsync(string email, string name, string fromName, string kind, string dates);
     Task SendStayConfirmedAsync(string email, string name, string otherName, string kind, string dates);
     Task SendReviewReminderAsync(string email, string name, string otherName, string kind, string otherProfileUrl);
@@ -331,13 +331,15 @@ public class EmailService : IEmailService
         await SendEmailAsync(_secrets.FromEmailAddress, $"Feedback from {feedback.Name} - Festive Guest", CreateEmailTemplate("Member Feedback", content), replyTo: feedback.Email);
     }
 
-    public async Task SendAccountStatusEmailAsync(string email, string name, bool suspended)
+    public async Task SendAccountStatusEmailAsync(string email, string name, bool suspended, string? reason)
     {
         var hi = $"<p>Hi <strong>{WebUtility.HtmlEncode(name)}</strong>,</p>";
+        var why = string.IsNullOrEmpty(reason) ? "" : $"<p><strong>Reason:</strong> {WebUtility.HtmlEncode(reason)}</p>";
         var (subject, heading, content) = suspended
             ? ("Your account has been suspended - Festive Guest", "Your account has been suspended", $@"
                 {hi}
                 <p>Your FestiveGuest account has been suspended after a review by our team.</p>
+                {why}
                 <div class=""security-note"">
                     <p style=""margin: 0;"">While it's suspended you can't sign in or send messages, and your posts are hidden from other members.</p>
                 </div>

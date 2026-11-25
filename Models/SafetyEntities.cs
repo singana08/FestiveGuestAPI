@@ -33,3 +33,17 @@ public class UserReportEntity : ITableEntity
     public string Status { get; set; } = "Open";
     public DateTime CreatedAt { get; set; }
 }
+
+/// <summary>Why a member is reported, and why an admin suspends one. The labels go into the suspension email.</summary>
+public static class ReportReasons
+{
+    public static readonly IReadOnlyDictionary<string, string> Labels = new Dictionary<string, string>
+    {
+        ["fake_profile"] = "Fake profile",
+        ["harassment"] = "Harassment",
+        ["scam"] = "Scam / asking for money",
+        ["inappropriate"] = "Inappropriate content",
+        ["safety"] = "Safety concern",
+        ["other"] = "Other",
+    };
+}

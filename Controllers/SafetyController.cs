@@ -12,7 +12,7 @@ namespace FestiveGuestAPI.Controllers;
 [Authorize]
 public class SafetyController : ControllerBase
 {
-    private static readonly HashSet<string> Reasons = new() { "fake_profile", "harassment", "scam", "inappropriate", "safety", "other" };
+    private static readonly HashSet<string> Reasons = new(ReportReasons.Labels.Keys);
 
     private readonly ISafetyRepository _safety;
     private readonly IUserRepository _users;
