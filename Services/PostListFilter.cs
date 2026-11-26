@@ -8,9 +8,11 @@ public static class PostListFilter
     /// <summary>
     /// Drops posts by members blocked in either direction or suspended by the team, flags posters whose
     /// phone is verified, and adds what the card shows about each poster (photos, rating, reply speed).
+    /// placeOf: a listing's location, so its card gets the photos of its own cities (hosts' listings only).
     /// </summary>
     public static async Task<List<T>> PrepareFeedAsync<T>(
-        HttpContext http, string userId, List<T> posts, Func<T, string> ownerOf, Action<T, bool> setVerified, Action<T, PosterInfo> setPoster)
+        HttpContext http, string userId, List<T> posts, Func<T, string> ownerOf, Action<T, bool> setVerified, Action<T, PosterInfo> setPoster,
+        Func<T, string>? placeOf = null)
     {
         var services = http.RequestServices;
         var safety = services.GetRequiredService<ISafetyRepository>();
@@ -33,11 +35,14 @@ public static class PostListFilter
             var owner = ownerOf(p);
             byId.TryGetValue(owner, out var user);
             setVerified(p, user?.IsVerified == true);
-            var photos = user?.UserType == "Host" ? gallery.View(user) : new();
+            var hostPhotos = user?.UserType == "Host" ? gallery.View(user) : new();
+            var photos = placeOf == null ? hostPhotos : GalleryService.ForPlaces(hostPhotos, GalleryService.CitiesIn(placeOf(p)));
+            var strip = photos.Take(12).ToList(); // the card shows 3; the rest let the page lead with a searched city's photos
             ratings.TryGetValue(owner, out var rating);
             setPoster(p, new PosterInfo
             {
-                Photos = photos.Take(4).Select(x => x.Url).ToList(),
+                Photos = strip.Select(x => x.Url).ToList(),
+                PhotoCities = strip.Select(x => x.City).ToList(),
                 PhotoCount = photos.Count,
                 Rating = rating.Average,
                 ReviewCount = rating.Count,

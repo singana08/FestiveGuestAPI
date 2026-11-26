@@ -24,10 +24,10 @@ public class GalleryController : ControllerBase
     public async Task<IActionResult> Get(string userId) => Ok(await _gallery.GetAsync(userId));
 
     [HttpPost("upload-url")]
-    public async Task<IActionResult> UploadUrl()
+    public async Task<IActionResult> UploadUrl([FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] UploadUrlRequest? request)
     {
         if (Me is not { } me) return Unauthorized();
-        var (photoId, uploadUrl, error) = await _gallery.StartUploadAsync(me);
+        var (photoId, uploadUrl, error) = await _gallery.StartUploadAsync(me, request?.City);
         return error != null ? BadRequest(new { message = error }) : Ok(new { photoId, uploadUrl });
     }
 
@@ -35,7 +35,7 @@ public class GalleryController : ControllerBase
     public async Task<IActionResult> Add([FromBody] AddPhotoRequest request)
     {
         if (Me is not { } me) return Unauthorized();
-        var (photos, error) = await _gallery.AddAsync(me, request.PhotoId ?? "", request.Caption);
+        var (photos, error) = await _gallery.AddAsync(me, request.PhotoId ?? "", request.Caption, request.City);
         return error != null ? BadRequest(new { message = error }) : Ok(photos);
     }
 
@@ -59,9 +59,15 @@ public class AddPhotoRequest
 {
     public string? PhotoId { get; set; }
     public string? Caption { get; set; }
+    public string? City { get; set; } // one of the host's cities; empty for "All places"
 }
 
 public class UpdateGalleryRequest
 {
     public List<GalleryPhoto>? Photos { get; set; }
+}
+
+public class UploadUrlRequest
+{
+    public string? City { get; set; } // checked up front, so a full place is refused before the upload
 }

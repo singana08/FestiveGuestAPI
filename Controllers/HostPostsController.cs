@@ -94,7 +94,7 @@ namespace FestiveGuestAPI.Controllers
                     return Ok(new List<object>());
                 }
                 
-                posts = await PostListFilter.PrepareFeedAsync(HttpContext, userId, posts, p => p.UserId, (p, v) => p.UserVerified = v, (p, info) => p.Poster = info);
+                posts = await PostListFilter.PrepareFeedAsync(HttpContext, userId, posts, p => p.UserId, (p, v) => p.UserVerified = v, (p, info) => p.Poster = info, p => p.Location);
                 return Ok(posts);
             }
             catch (Exception ex)
