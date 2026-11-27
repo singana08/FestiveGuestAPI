@@ -116,6 +116,19 @@ namespace FestiveGuestAPI.Controllers
                     return BadRequest(new { message = guideError });
                 }
 
+                // The same trip twice (same place, day and need, still up) only clutters the board and emails hosts twice.
+                var day = (request.PlanningDate ?? request.VisitingDate)?.Date;
+                var same = (await _guestPostRepository.GetByUserIdAsync(userId)).FirstOrDefault(p =>
+                    p.Status == "Active"
+                    && string.Equals(p.Location?.Trim(), request.Location.Trim(), StringComparison.OrdinalIgnoreCase)
+                    && p.VisitingDate?.Date == day
+                    && string.Equals(string.IsNullOrEmpty(p.NeedType) ? "stay" : p.NeedType, needType, StringComparison.OrdinalIgnoreCase));
+                if (same != null)
+                {
+                    var when = day.HasValue ? $" on {day.Value:d MMM}" : "";
+                    return Conflict(new { message = $"You’ve already posted this trip to {request.Location.Split(',')[0].Trim()}{when} (“{same.Title}”). Open My posts to change it instead.", existingId = same.RowKey });
+                }
+
                 var post = new GuestPostEntity
                 {
                     PartitionKey = "GuestPost",

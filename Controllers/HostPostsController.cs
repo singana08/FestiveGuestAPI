@@ -42,6 +42,16 @@ namespace FestiveGuestAPI.Controllers
                     return BadRequest("Title, content, and location are required");
                 }
 
+                // The same listing twice (same title and place, still up) only clutters the board.
+                var same = (await _hostPostRepository.GetByUserIdAsync(userId)).FirstOrDefault(p =>
+                    p.Status == "Active"
+                    && string.Equals(p.Title?.Trim(), request.Title.Trim(), StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(p.Location?.Trim(), request.Location.Trim(), StringComparison.OrdinalIgnoreCase));
+                if (same != null)
+                {
+                    return Conflict(new { message = $"You already have a listing called “{same.Title}” there. Open My posts to change it instead.", existingId = same.RowKey });
+                }
+
                 var post = new HostPostEntity
                 {
                     PartitionKey = "HostPost",
