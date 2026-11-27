@@ -85,16 +85,20 @@ public class AuthService : IAuthService
                 }
             }
 
-            // Verifying the phone at sign-up is optional (SMS can fail); members can verify later
-            // from their profile. Only a real OTP check marks the number as verified.
+            // Every member verifies their phone to join (the home page promises it). The one exception is a
+            // server with no SMS provider set up, where nobody could verify; they verify later from their profile.
             bool phoneVerified = false;
             if (!string.IsNullOrWhiteSpace(request.PhoneVerificationToken))
             {
                 if (_smsOtpService.ValidateVerificationToken(request.PhoneVerificationToken, request.Phone, "register") == null)
                 {
-                    return new AuthResponse { Success = false, Message = "Your phone verification expired. Verify again, or continue and verify later from your profile." };
+                    return new AuthResponse { Success = false, Message = "Your phone code has expired. Please verify your number again." };
                 }
                 phoneVerified = true;
+            }
+            else if (_smsOtpService.IsConfigured)
+            {
+                return new AuthResponse { Success = false, Message = "Please verify your phone number to finish signing up." };
             }
 
             // A number someone has already verified can't be claimed by another account.

@@ -57,23 +57,16 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Rate limiting — protects login and OTP endpoints
+// Rate limiting — protects login and OTP endpoints. Counted per visitor (IP address): a single shared
+// window would let 5 sign-ins a minute through for the whole site and turn everyone else away.
+static RateLimitPartition<string> PerVisitor(HttpContext http, int permits, TimeSpan window) =>
+    RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = window, QueueLimit = 0 });
+
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("login", o =>
-    {
-        o.PermitLimit = 5;
-        o.Window = TimeSpan.FromMinutes(1);
-        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit = 0;
-    });
-    options.AddFixedWindowLimiter("otp", o =>
-    {
-        o.PermitLimit = 3;
-        o.Window = TimeSpan.FromMinutes(5);
-        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit = 0;
-    });
+    options.AddPolicy("login", http => PerVisitor(http, 5, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("otp", http => PerVisitor(http, 3, TimeSpan.FromMinutes(5)));
     options.RejectionStatusCode = 429;
 });
 
