@@ -44,8 +44,34 @@ public static class ChatHistory
     public static object Payload(ChatMessageEntity m) => new
     {
         id = m.RowKey, senderId = m.SenderId, senderName = m.SenderName, receiverId = m.ReceiverId,
-        message = m.Message, timestamp = m.SentAt ?? DateTime.UtcNow, status = m.Status,
+        message = m.Message, timestamp = m.SentAt ?? DateTime.UtcNow, status = m.Status, about = About(m),
     };
+
+    /// <summary>"About: (post title)" on a message sent from a post's card; null otherwise.</summary>
+    public static object? About(ChatMessageEntity m) =>
+        string.IsNullOrEmpty(m.AboutPostId) ? null : new { postId = m.AboutPostId, kind = m.AboutKind, title = m.AboutTitle };
+
+    /// <summary>
+    /// Marks a message as sent about a post, before it's saved. Only a live post of one of the two members counts.
+    /// A message to a trip's traveller also adds the sender to that trip's "messaged you about this" (PostActivity).
+    /// Never throws: a message is never held up by this.
+    /// </summary>
+    public static async Task AboutAsync(ChatMessageEntity m, string? postId, IGuestPostRepository trips, IHostPostRepository listings, TableServiceClient tables)
+    {
+        if (string.IsNullOrWhiteSpace(postId)) return;
+        try
+        {
+            var members = new[] { m.SenderId, m.ReceiverId };
+            if (await trips.GetByIdAsync(postId) is { Status: "Active" } trip && members.Contains(trip.UserId))
+            {
+                (m.AboutPostId, m.AboutKind, m.AboutTitle) = (trip.RowKey, "trip", trip.Title);
+                if (trip.UserId == m.ReceiverId) await PostActivity.AddContactAsync(tables, trip.RowKey, m.SenderId);
+            }
+            else if (await listings.GetByIdAsync(postId) is { Status: "Active" } listing && members.Contains(listing.UserId))
+                (m.AboutPostId, m.AboutKind, m.AboutTitle) = (listing.RowKey, "listing", listing.Title);
+        }
+        catch { /* the message still goes, just without "About" */ }
+    }
 
     public static async Task<bool> HaveBothMessagedAsync(TableServiceClient tables, string a, string b)
     {

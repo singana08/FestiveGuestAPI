@@ -14,13 +14,18 @@ public class ChatHub : Hub
     private readonly TableServiceClient _tableServiceClient;
     private readonly ISafetyRepository _safety;
     private readonly INotificationService _notifications;
+    private readonly IGuestPostRepository _trips;
+    private readonly IHostPostRepository _listings;
 
-    public ChatHub(IUserRepository userRepository, TableServiceClient tableServiceClient, ISafetyRepository safety, INotificationService notifications)
+    public ChatHub(IUserRepository userRepository, TableServiceClient tableServiceClient, ISafetyRepository safety, INotificationService notifications,
+        IGuestPostRepository trips, IHostPostRepository listings)
     {
         _userRepository = userRepository;
         _tableServiceClient = tableServiceClient;
         _safety = safety;
         _notifications = notifications;
+        _trips = trips;
+        _listings = listings;
     }
 
     public async Task JoinChat(string otherUserId)
@@ -34,7 +39,10 @@ public class ChatHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, chatRoom);
     }
 
-    public async Task SendMessage(string otherUserId, string message)
+    public Task SendMessage(string otherUserId, string message) => SendMessageAbout(otherUserId, message, null);
+
+    /// <summary>SendMessage from a post's card: the message shows "About: (post title)". A separate name so older apps' two-argument calls still work.</summary>
+    public async Task SendMessageAbout(string otherUserId, string message, string? postId)
     {
         try
         {
@@ -83,6 +91,7 @@ public class ChatHub : Hub
                 Status = "Sent",
                 SentAt = DateTime.UtcNow
             };
+            await ChatHistory.AboutAsync(messageEntity, postId, _trips, _listings, _tableServiceClient);
 
             await messagesTable.AddEntityAsync(messageEntity);
             _ = Task.Run(() => _notifications.NotifyNewMessageAsync(userId, user.Name, otherUserId));
@@ -95,7 +104,8 @@ public class ChatHub : Hub
                 receiverId = otherUserId,
                 message = message,
                 timestamp = DateTime.UtcNow,
-                status = "Sent"
+                status = "Sent",
+                about = ChatHistory.About(messageEntity)
             });
         }
         catch (Exception ex) when (ex is not HubException)

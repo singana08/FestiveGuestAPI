@@ -174,7 +174,20 @@ public class StayService : IStayService
             try { if (requester != null) await _email.SendStayConfirmedAsync(requester.Email, requester.Name, stay.PartnerName, stay.Kind, Dates(stay.StartDate, stay.EndDate)); }
             catch (Exception ex) { _logger.LogWarning(ex, "Couldn't email stay confirmation {StayId}", stay.RowKey); }
         }
+        else await EmailOffAsync(stay, userId, "declined");
         return (null, message);
+    }
+
+    /// <summary>Tells the other person a request or stay is off, so nobody keeps counting on it.</summary>
+    private async Task EmailOffAsync(StayEntity stay, string byId, string how)
+    {
+        var (byName, toId) = byId == stay.RequesterId ? (stay.RequesterName, stay.PartnerId) : (stay.PartnerName, stay.RequesterId);
+        try
+        {
+            if (await _users.GetUserByIdAsync(toId) is { } to && !string.IsNullOrEmpty(to.Email))
+                await _email.SendStayOffAsync(to.Email, to.Name, byName, stay.Kind, Dates(stay.StartDate, stay.EndDate), how);
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Couldn't email that stay {StayId} is {How}", stay.RowKey, how); }
     }
 
     public async Task<(string? Error, ChatMessageEntity? Message)> CancelAsync(string userId, string stayId)
@@ -189,7 +202,10 @@ public class StayService : IStayService
         stay.Status = Cancelled;
         stay.RespondedAt = DateTime.UtcNow;
         await SaveAsync(stay);
-        return (null, await TellAsync(stay, userId, wasConfirmed ? $"Cancelled the {Word(stay)}" : $"Cancelled the {Word(stay)} request"));
+        var message = await TellAsync(stay, userId, wasConfirmed ? $"Cancelled the {Word(stay)}" : $"Cancelled the {Word(stay)} request");
+        // Cancelling a request sent to you is declining it; cancelling your own is withdrawing it.
+        await EmailOffAsync(stay, userId, wasConfirmed ? "cancelled" : userId == stay.RequesterId ? "withdrawn" : "declined");
+        return (null, message);
     }
 
     public async Task<List<StayView>> BetweenAsync(string a, string b) =>

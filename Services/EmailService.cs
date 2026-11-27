@@ -24,6 +24,8 @@ public interface IEmailService
     Task SendAccountStatusEmailAsync(string email, string name, bool suspended, string? reason);
     Task SendStayRequestAsync(string email, string name, string fromName, string kind, string dates);
     Task SendStayConfirmedAsync(string email, string name, string otherName, string kind, string dates);
+    /// <param name="how">"declined" (your request), "withdrawn" (their request) or "cancelled" (a confirmed stay).</param>
+    Task SendStayOffAsync(string email, string name, string otherName, string kind, string dates, string how);
     Task SendReviewReminderAsync(string email, string name, string otherName, string kind, string otherProfileUrl);
     Task SendStayTomorrowAsync(string email, string name, string otherName, string kind, string dates, bool forHost, string note, string link);
 }
@@ -382,6 +384,30 @@ public class EmailService : IEmailService
             {Button("Open chats", $"{_secrets.AppBaseUrl}/chats")}";
         await SendEmailAsync(email, $"{otherName} confirmed your {What(kind)} - Festive Guest", CreateEmailTemplate($"Your {What(kind)} is confirmed", content));
     }
+
+    /// <summary>A request declined or withdrawn, or a confirmed stay cancelled: the other person may be counting on it, so they hear at once.</summary>
+    public async Task SendStayOffAsync(string email, string name, string otherName, string kind, string dates, string how)
+    {
+        string E(string v) => WebUtility.HtmlEncode(v);
+        var (subject, heading, what) = how switch
+        {
+            "declined" => ($"{otherName} declined your {What(kind)} request", $"{Cap(What(kind))} request declined", $"declined your {What(kind)} request for"),
+            "withdrawn" => ($"{otherName} withdrew their {What(kind)} request", $"{Cap(What(kind))} request withdrawn", $"withdrew their {What(kind)} request for"),
+            _ => ($"{otherName} cancelled your {What(kind)}", $"Your {What(kind)} was cancelled", $"cancelled your confirmed {What(kind)}:"),
+        };
+        var next = how == "withdrawn"
+            ? Button("Open chats", $"{_secrets.AppBaseUrl}/chats")
+            : $@"<p>Other members in the city may still be free for those dates — have a look on FestiveGuest.</p>
+            {Button("Find someone else", $"{_secrets.AppBaseUrl}/posts")}";
+        var content = $@"
+            <p>Hi <strong>{E(name)}</strong>,</p>
+            <p><strong>{E(otherName)}</strong> {what}</p>
+            <div class=""security-note""><p style=""margin: 0;"">📅 <strong>{E(dates)}</strong></p></div>
+            {next}";
+        await SendEmailAsync(email, $"{subject} - Festive Guest", CreateEmailTemplate(heading, content));
+    }
+
+    private static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
     public async Task SendReviewReminderAsync(string email, string name, string otherName, string kind, string otherProfileUrl)
     {

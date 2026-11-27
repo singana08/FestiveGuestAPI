@@ -4,6 +4,7 @@ using FestiveGuestAPI.Services;
 using FestiveGuestAPI.Models;
 using FestiveGuestAPI.DTOs;
 using System.Security.Claims;
+using Azure.Data.Tables;
 
 namespace FestiveGuestAPI.Controllers
 {
@@ -61,7 +62,10 @@ namespace FestiveGuestAPI.Controllers
         // Shared response shape. The poster's email is deliberately left out —
         // posts are visible to other members, and no client uses it.
         /// <summary>A trip post as the website reads it (also used for "Their posts" on profiles).</summary>
-        public static object ToResponse(GuestPostEntity p) => new
+        public static object ToResponse(GuestPostEntity p) => Shape(p, null);
+
+        // activity: only on the traveller's own posts (My posts) — views, and who messaged them about it.
+        private static object Shape(GuestPostEntity p, object? activity) => new
         {
             rowKey = p.RowKey,
             userId = p.UserId,
@@ -83,7 +87,8 @@ namespace FestiveGuestAPI.Controllers
             guideLanguages = p.GuideLanguages,
             guideBudgetPerHour = p.GuideBudgetPerHour,
             userVerified = p.UserVerified,
-            poster = p.Poster
+            poster = p.Poster,
+            activity
         };
 
         [HttpPost]
@@ -233,7 +238,7 @@ namespace FestiveGuestAPI.Controllers
         }
 
         [HttpGet("my-posts")]
-        public async Task<IActionResult> GetMyPosts()
+        public async Task<IActionResult> GetMyPosts([FromServices] TableServiceClient tables, [FromServices] IUserRepository users, [FromServices] ISafetyRepository safety)
         {
             try
             {
@@ -246,12 +251,44 @@ namespace FestiveGuestAPI.Controllers
                 var allPosts = await _guestPostRepository.GetAllActiveAsync();
                 var myPosts = allPosts.Where(p => p.UserId == userId).ToList();
 
-                return Ok(myPosts.Select(ToResponse));
+                // For the traveller only: how often hosts opened each trip, and who messaged them about it (names as they are now).
+                var hidden = await safety.GetHiddenUserIdsAsync(userId);
+                var names = new Dictionary<string, string>();
+                var result = new List<object>();
+                foreach (var p in myPosts)
+                {
+                    PostActivityEntity activity;
+                    try { activity = await PostActivity.GetAsync(tables, p.RowKey); }
+                    catch { activity = new PostActivityEntity(); } // My posts still loads, without the numbers
+                    var contacted = new List<object>();
+                    foreach (var id in activity.ContactIds().Where(id => !hidden.Contains(id)))
+                    {
+                        if (!names.TryGetValue(id, out var name)) names[id] = name = (await users.GetUserByIdAsync(id))?.Name ?? "";
+                        if (name.Length > 0) contacted.Add(new { id, name });
+                    }
+                    result.Add(Shape(p, new { views = activity.Views, contactedBy = contacted }));
+                }
+                return Ok(result);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Internal server error", error = ex.Message });
             }
+        }
+
+        /// <summary>
+        /// A host opened this trip in full, or pressed "Offer to host": one more on its view count, which only its traveller
+        /// sees (My posts). Who opened it isn't kept. Always 204, so it says nothing about the post.
+        /// </summary>
+        [HttpPost("{id}/view")]
+        public async Task<IActionResult> CountView(string id, [FromServices] IUserRepository users, [FromServices] TableServiceClient tables)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+            var post = await _guestPostRepository.GetByIdAsync(id);
+            if (post is { Status: "Active" } && post.UserId != userId && (await users.GetUserByIdAsync(userId))?.UserType == "Host")
+                await PostActivity.CountViewAsync(tables, id);
+            return NoContent();
         }
 
         [HttpDelete("{id}")]

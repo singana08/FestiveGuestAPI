@@ -69,7 +69,8 @@ public class ChatController : ControllerBase
     }
 
     [HttpPost("send")]
-    public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
+    public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request,
+        [FromServices] IGuestPostRepository trips, [FromServices] IHostPostRepository listings)
     {
         var userId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrEmpty(userId))
@@ -106,6 +107,7 @@ public class ChatController : ControllerBase
                 Status = "Sent",
                 SentAt = DateTime.UtcNow
             };
+            await ChatHistory.AboutAsync(messageEntity, request.AboutPostId, trips, listings, _tableServiceClient);
 
             await messagesTable.AddEntityAsync(messageEntity);
             _ = Task.Run(() => _notifications.NotifyNewMessageAsync(userId, user.Name, recipientId));
@@ -119,7 +121,8 @@ public class ChatController : ControllerBase
                 receiverId = recipientId,
                 message = request.Message,
                 timestamp = DateTime.UtcNow,
-                status = "Sent"
+                status = "Sent",
+                about = ChatHistory.About(messageEntity)
             });
         }
         catch (Exception ex)
@@ -158,7 +161,8 @@ public class ChatController : ControllerBase
                     timestamp = entity.Timestamp,
                     status = entity.Status,
                     deliveredAt = entity.DeliveredAt,
-                    readAt = entity.ReadAt
+                    readAt = entity.ReadAt,
+                    about = ChatHistory.About(entity)
                 });
             }
 
@@ -329,7 +333,8 @@ public class SendMessageRequest
     public string ReceiverId { get; set; } = string.Empty;
     public string RecipientId { get; set; } = string.Empty; // Frontend compatibility
     public string Message { get; set; } = string.Empty;
-    
+    public string? AboutPostId { get; set; } // sent from a post's card (ChatHistory.AboutAsync)
+
     // Property to get the actual recipient ID from either field
     public string GetRecipientId() => !string.IsNullOrEmpty(RecipientId) ? RecipientId : ReceiverId;
 }

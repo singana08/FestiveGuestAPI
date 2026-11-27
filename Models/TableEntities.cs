@@ -128,6 +128,27 @@ public class ChatMessageEntity : ITableEntity
     public DateTime? ReadAt { get; set; }
     // Set once when sent. (Timestamp is last-modified, so it moves when a message is marked read.)
     public DateTime? SentAt { get; set; }
+    // Sent from a post's card: which post, "trip" or "listing", and its title at the time (see ChatHistory.AboutAsync).
+    public string? AboutPostId { get; set; }
+    public string? AboutKind { get; set; }
+    public string? AboutTitle { get; set; }
+}
+
+/// <summary>
+/// What a traveller sees on their own trip post (PostActivity): how often hosts opened it, and who messaged them about it.
+/// One row per trip post: PartitionKey "trip", RowKey = the post's id.
+/// </summary>
+public class PostActivityEntity : ITableEntity
+{
+    public string PartitionKey { get; set; } = string.Empty;
+    public string RowKey { get; set; } = string.Empty;
+    public DateTimeOffset? Timestamp { get; set; }
+    public ETag ETag { get; set; }
+
+    public int Views { get; set; }                         // a total only: who opened it isn't kept
+    public string ContactedBy { get; set; } = string.Empty; // member ids, comma-separated, first contact first
+
+    public List<string> ContactIds() => ContactedBy.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
 }
 
 // Payments table
