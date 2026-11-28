@@ -26,6 +26,10 @@ public class RegisterRequest
 
     // From POST api/phone-otp/verify (purpose=register). Only required once phone OTP is configured.
     public string? PhoneVerificationToken { get; set; }
+
+    // The "18 or older" and "I agree to the Terms and Privacy Policy" boxes; both required to join.
+    public bool AgeConfirmed { get; set; }
+    public bool TermsAccepted { get; set; }
 }
 
 public class LoginRequest

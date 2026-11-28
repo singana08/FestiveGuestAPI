@@ -30,6 +30,12 @@ public class UserEntity : ITableEntity
     public string NotificationPreferences { get; set; } = "{\"email\":true,\"push\":false}"; // JSON string
     public string Gallery { get; set; } = string.Empty; // JSON [{ id, caption }], cover first (see Services/Gallery.cs)
 
+    // What they agreed to when joining: 18 or older, and the Terms/Privacy Policy of TermsVersion (AuthService.TermsVersion).
+    // Empty for accounts made before these were recorded.
+    public DateTime? AgeConfirmedAt { get; set; }
+    public DateTime? TermsAcceptedAt { get; set; }
+    public string TermsVersion { get; set; } = string.Empty;
+
     // Set while Status is Suspended, cleared on reactivation. Only admins see these.
     public string SuspendedReason { get; set; } = string.Empty; // a ReportReasons key
     public string SuspendedNote { get; set; } = string.Empty;   // the admin's private note

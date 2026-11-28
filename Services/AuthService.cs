@@ -52,6 +52,9 @@ public class AuthService : IAuthService
         _httpClientFactory = httpClientFactory;
     }
 
+    // The "Last Updated" date on the website's Terms of Service and Privacy Policy; change it when they change.
+    public const string TermsVersion = "2026-11-27";
+
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
         try
@@ -60,6 +63,16 @@ public class AuthService : IAuthService
             if (request.UserType != "Guest" && request.UserType != "Host")
             {
                 return new AuthResponse { Success = false, Message = "Invalid user type. Must be 'Guest' or 'Host'." };
+            }
+
+            // Members must be adults who agreed to the Terms and Privacy Policy; the account records both (below).
+            if (!request.AgeConfirmed)
+            {
+                return new AuthResponse { Success = false, Message = "Please confirm you are 18 or older to join." };
+            }
+            if (!request.TermsAccepted)
+            {
+                return new AuthResponse { Success = false, Message = "Please accept the Terms of Service and Privacy Policy to join." };
             }
 
             // Check if email already exists
@@ -119,7 +132,10 @@ public class AuthService : IAuthService
                 Bio = request.Bio,
                 ReferredBy = request.ReferredBy ?? string.Empty,
                 HostingAreas = request.HostingAreas ?? string.Empty,
-                IsVerified = phoneVerified
+                IsVerified = phoneVerified,
+                AgeConfirmedAt = DateTime.UtcNow,
+                TermsAcceptedAt = DateTime.UtcNow,
+                TermsVersion = TermsVersion
             };
 
             Console.WriteLine($"DEBUG: User entity ReferredBy before save: '{user.ReferredBy}'");
